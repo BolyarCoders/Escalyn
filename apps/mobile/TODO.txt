@@ -1,0 +1,14 @@
+generic implenetations:
+topbar transparecy clickability 
+виж още секция
+frostflow guidbook
+conditions for register - 2 to 100 name, email trqbva da e email (@)
+fix the cart where it reccomends a store it doenst show now due to the new api
+billa/kaufland/lidl cart for the items
+advanced settings
+
+future features:
+profile settings
+save functionality
+edit profile page
+nashiq izbor da ima i 4te store-a
