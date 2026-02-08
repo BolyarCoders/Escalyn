@@ -7,7 +7,7 @@ export default function Layout() {
     <>
       <Stack
         screenOptions={{
-          headerShown: true, // Show header for all screens
+          headerShown: false, // Show header for all screens
           animation: "fade",
         }}
       />
