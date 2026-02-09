@@ -1,0 +1,122 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|c:\\users\\merte\\documents\\github\\escalyn\\services\\escalyn.api\\escalyn.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|solutionrelative:escalyn.api\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1988F843-CC7F-4C59-A013-3469C3CF4206}|Escalyn.Api.Data\\Escalyn.Api.Data.csproj|c:\\users\\merte\\documents\\github\\escalyn\\services\\escalyn.api\\escalyn.api.data\\applicationdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1988F843-CC7F-4C59-A013-3469C3CF4206}|Escalyn.Api.Data\\Escalyn.Api.Data.csproj|solutionrelative:escalyn.api.data\\applicationdbcontext.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1988F843-CC7F-4C59-A013-3469C3CF4206}|Escalyn.Api.Data\\Escalyn.Api.Data.csproj|c:\\users\\merte\\documents\\github\\escalyn\\services\\escalyn.api\\escalyn.api.data\\escalyn.api.data.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{1988F843-CC7F-4C59-A013-3469C3CF4206}|Escalyn.Api.Data\\Escalyn.Api.Data.csproj|solutionrelative:escalyn.api.data\\escalyn.api.data.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|c:\\users\\merte\\documents\\github\\escalyn\\services\\escalyn.api\\escalyn.api\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|solutionrelative:escalyn.api\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|c:\\users\\merte\\documents\\github\\escalyn\\services\\escalyn.api\\escalyn.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|solutionrelative:escalyn.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|c:\\users\\merte\\documents\\github\\escalyn\\services\\escalyn.api\\escalyn.api\\escalyn.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{4EA77962-2FC1-4D42-B1D1-E240835B2D9C}|Escalyn.Api\\Escalyn.Api.csproj|solutionrelative:escalyn.api\\escalyn.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 5,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ApplicationDbContext.cs",
+              "DocumentMoniker": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api.Data\\ApplicationDbContext.cs",
+              "RelativeDocumentMoniker": "Escalyn.Api.Data\\ApplicationDbContext.cs",
+              "ToolTip": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api.Data\\ApplicationDbContext.cs",
+              "RelativeToolTip": "Escalyn.Api.Data\\ApplicationDbContext.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAlAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-04T13:38:51.581Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "appsettings.Development.json",
+              "DocumentMoniker": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\appsettings.Development.json",
+              "RelativeDocumentMoniker": "Escalyn.Api\\appsettings.Development.json",
+              "ToolTip": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\appsettings.Development.json",
+              "RelativeToolTip": "Escalyn.Api\\appsettings.Development.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-02-04T13:37:19.372Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "appsettings.json",
+              "DocumentMoniker": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\appsettings.json",
+              "RelativeDocumentMoniker": "Escalyn.Api\\appsettings.json",
+              "ToolTip": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\appsettings.json",
+              "RelativeToolTip": "Escalyn.Api\\appsettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-02-04T13:32:48.723Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Escalyn.Api.Data",
+              "DocumentMoniker": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api.Data\\Escalyn.Api.Data.csproj",
+              "RelativeDocumentMoniker": "Escalyn.Api.Data\\Escalyn.Api.Data.csproj",
+              "ToolTip": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api.Data\\Escalyn.Api.Data.csproj",
+              "RelativeToolTip": "Escalyn.Api.Data\\Escalyn.Api.Data.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-02-04T13:30:13.972Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "Escalyn.Api",
+              "DocumentMoniker": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\Escalyn.Api.csproj",
+              "RelativeDocumentMoniker": "Escalyn.Api\\Escalyn.Api.csproj",
+              "ToolTip": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\Escalyn.Api.csproj",
+              "RelativeToolTip": "Escalyn.Api\\Escalyn.Api.csproj",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
+              "WhenOpened": "2026-02-04T13:18:15.873Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\Program.cs",
+              "RelativeDocumentMoniker": "Escalyn.Api\\Program.cs",
+              "ToolTip": "C:\\Users\\merte\\Documents\\GitHub\\Escalyn\\services\\Escalyn.Api\\Escalyn.Api\\Program.cs",
+              "RelativeToolTip": "Escalyn.Api\\Program.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABAAAAAqAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-04T13:24:25.192Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

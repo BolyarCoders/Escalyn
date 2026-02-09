@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Escalyn.Api.Data.Models/Escalyn.Api.Data.Models.csproj" />
+  <Project Path="Escalyn.Api.Data/Escalyn.Api.Data.csproj" />
+  <Project Path="Escalyn.Api.Services/Escalyn.Api.Services.csproj" />
+  <Project Path="Escalyn.Api/Escalyn.Api.csproj" />
+</Solution>
