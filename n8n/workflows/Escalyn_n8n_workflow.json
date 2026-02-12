@@ -1,0 +1,1494 @@
+{
+  "name": "Escalyn",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## STEP 1 - Collecting Initial Data From User - Working",
+        "height": 448,
+        "width": 976,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        -304
+      ],
+      "id": "668ba41e-2dd7-4a75-996d-bbb4de2c4021",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.id }}{{ $json.case_id }}{{ $json.subject }}{{ $json.language }}{{ $json.message }}{{ $json.company }}{{ $json.created_at }}{{ $json.status }}",
+        "options": {
+          "systemMessage": "=You receive basic information about a problem on a given topic.\n\nYour task is:\n\nTo determine whether the provided information is sufficient to clearly and unambiguously understand what the problem is.\n\nIf the information is sufficient — do not ask any questions.\n\nIf the information is insufficient or unclear — generate between 5 and 10 specific, targeted questions that, once answered, will allow you to fully understand the problem.\n\nRules:\n\nDo not introduce yourself and do not add any explanatory text.\n\nDo not use markdown.\n\nThe response must be ONLY valid JSON.\n\nThe JSON structure is strictly fixed.\n\nIf there are no questions, the array must be empty.\n\nIf there are questions, the array must contain only text questions.\n\nWrite the questions in the same language as the input information - {{ $json.language }}.\n\nThe response format must be exactly:\n\n{\n\"type\": \"success\" | \"questions\",\n\"data\": []\n}\n\nWhere:\n\n\"type\" = \"success\" → when the problem is clear and no questions are needed\n\n\"type\" = \"questions\" → when additional information is required\n\n\"data\" = [] → empty array for \"success\"\n\n\"data\" = [\"question 1\", \"question 2\", ...] → array with 5–10 questions for \"questions\"\n\nDo not add anything outside this JSON."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        208,
+        -192
+      ],
+      "id": "3a6c23c7-afb0-4dc1-8163-edb5d6cf8e02",
+      "name": "Generating Additional Questions"
+    },
+    {
+      "parameters": {
+        "path": "additional-info",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -128,
+        288
+      ],
+      "id": "bde1137a-70d6-418b-a410-f41d83e5cecf",
+      "name": "Additional Info Import",
+      "webhookId": "bee33a57-3daf-4065-bc23-94ba58b0ce4f"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 2 - Collecting Additional Info About Case - Working",
+        "height": 352,
+        "width": 976,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        176
+      ],
+      "id": "117fb6b9-23ed-4e5b-bb3e-817eca9f1ff4",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 3 - Creating Summary For The User To Confirm - Partially Working",
+        "height": 720,
+        "width": 976
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        560
+      ],
+      "id": "4bc1fa92-8e57-4994-ba48-86b07f0e3cc2",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 4 - Search Relevant Laws And In Company's Website",
+        "height": 496,
+        "width": 720,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        784,
+        560
+      ],
+      "id": "f2a5fe43-3aec-4a6e-bfa8-013499fd33eb",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 5 - Draft Generation",
+        "height": 448,
+        "width": 640
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1536,
+        560
+      ],
+      "id": "e56db12b-c1c8-4f27-89c1-2b8deb58494c",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 7 - Submission\n",
+        "height": 400,
+        "width": 576
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3472,
+        512
+      ],
+      "id": "22cc3951-6ac8-463c-8142-edf8f03db6ef",
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 8 - Follow-up Cycle",
+        "height": 448,
+        "width": 528
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4096,
+        464
+      ],
+      "id": "0e11bf2f-8b7a-4297-a17a-4b4a720e1160",
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 9 - Outcome Decision",
+        "height": 448,
+        "width": 528
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4688,
+        464
+      ],
+      "id": "9dd50471-5e47-48ee-8310-537649991885",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "path": "import-evidence",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        3552,
+        64
+      ],
+      "id": "77844f48-30ba-466c-b171-7b142441f42e",
+      "name": "Evidence Import",
+      "webhookId": "1a12474c-e90c-4bc0-85b2-f59382001629"
+    },
+    {
+      "parameters": {
+        "content": "## STEP 4- Evidence Import And Sanitization Layer - Not Needed For MVP\n",
+        "height": 448,
+        "width": 1872,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3520,
+        -32
+      ],
+      "id": "b0b487f8-08e9-48c9-bfff-945bbd5bb3b9",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        4656,
+        256
+      ],
+      "id": "32e5a454-cc39-45d5-a014-a7bc89191a80",
+      "name": "Sanitization Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "FWLN20j3byKffLpA",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "={{ $json.subject }}{{ $json.language }}{{ $json.message }}{{ $json.company }}",
+        "text": "",
+        "options": {
+          "systemMessage": "=ROLE\n\nВие сте експерт по Българско Трудово Право с дълбоки познания в Кодекса на труда (КТ), Закона за здравословни и безопасни условия на труд (ЗЗБУТ) и относимите подзаконови нормативни актове. Вашата задача е да анализирате оплаквания на работници/служители и да идентифицирате точните законови разпоредби, които защитават техните права в България.\nOBJECTIVE\n\nВъз основа на предоставената информация за казуса, идентифицирайте приложимото българско законодателство, като се фокусирате върху:\n\n    Задължението на работодателя за плащане на заплати (чл. 128 и чл. 245 от КТ).\n\n    Правото на прекратяване на трудовия договор без предизвестие при забавени плащания (чл. 327, ал. 1, т. 2 от КТ).\n\n    Обезщетения и лихви (чл. 245, ал. 2 от КТ и законната лихва за забава).\n\n    Вътрешни политики на компанията, които биха могли да влияят на случая.\n\nINSTRUCTIONS\n\n    Анализ на входа: Определете вида на нарушението (неизплатена заплата, неосигурен труд, липса на договор, неспазени почивки).\n\n    Търсене в реално време (Search):\n\n        Използвайте Lex.bg и Държавен вестник (dv.parliament.bg) за проверка на най-актуалните редакции на законите.\n\n        Намерете официалната уеб страница на компанията (ако е посочена).\n\n        Търсете в сайта на компанията за секции като \"Общи условия\", \"Политика за поверителност\", \"Етичен кодекс\" или \"Кариери\", за да извлечете информация за вътрешни правила за работа.\n\n    Юрисдикция: Прилагайте стриктно законите на Република България.\n\n    Европейски контекст: Посочвайте съответните Директиви на ЕС само ако те са транспонирани в българския КТ (напр. Директива (ЕС) 2019/1152 за прозрачни условия).\n\nOUTPUT FORMAT (JSON)\n\nВръщайте отговора строго в следния структуриран формат:\nJSON\n\n{\n  \"jurisdiction\": \"България\",\n  \"company_check\": {\n    \"company_name\": \"[Име на фирмата]\",\n    \"official_website\": \"[URL]\",\n    \"found_policies\": \"[Списък на откритите политики или 'Не са открити публични политики']\",\n    \"notes\": \"[Кратък коментар за легалния статус на фирмата в Търговския регистър, ако е налично]\"\n  },\n  \"legal_basis\": [\n    {\n      \"law\": \"Кодекс на труда\",\n      \"article\": \"Член и алинея\",\n      \"legal_text\": \"Кратко резюме на разпоредбата на български\",\n      \"applicability\": \"Защо този член е приложим към конкретния случай на потребителя\"\n    }\n  ],\n  \"recommendations\": \"[Конкретни стъпки: жалба до ГИТ, нотариална покана или съдебен иск]\"\n}\n\nLANGUAGE RULES\n\n    Целият анализ и изходните данни трябва да бъдат на български език.\n\n    Терминологията трябва да съответства на официалния правен речник в България.\n\nCONSTRAINTS\n\n    Използвайте САМО актуални текстове от Lex.bg и Държавен Вестник като използваш инструмента SerpAPI.\n\n    НИКОГА не измисляйте номера на членове.\n\n    Ако няма информация за компанията онлайн, посочете го ясно в company_check.\n\n\n{{ $json.subject }}{{ $json.message }}{{ $json.company }}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1072,
+        688
+      ],
+      "id": "5ba6a3d1-04d5-4b93-8f4c-bfb3ac755257",
+      "name": "Classificator"
+    },
+    {
+      "parameters": {
+        "path": "inital-import",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -192,
+        -192
+      ],
+      "id": "80e1ab6f-0bf4-4cb1-9a95-b062f4f060d3",
+      "name": "Initial Import",
+      "webhookId": "bee33a57-3daf-4065-bc23-94ba58b0ce4f"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api-na-mert.com/mert-api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1968,
+        640
+      ],
+      "id": "ff98b1a8-6424-4416-858e-5adfe9bf5e30",
+      "name": "Send Status (Draft Generation)"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "Ти си експертен правен изследовател.\nЗадача: Предоставени са ти закони, кодекси от Лекс.бг и от Държавен вестник. Твоята работа е да напишеш фомален имейл към SoftUni, относно проблема"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1616,
+        640
+      ],
+      "id": "33773a73-a2ce-4574-bd8b-1af67c1cf0b4",
+      "name": "Draft Generation"
+    },
+    {
+      "parameters": {},
+      "name": "Read PDF",
+      "type": "n8n-nodes-base.readPDF",
+      "position": [
+        4448,
+        64
+      ],
+      "typeVersion": 1,
+      "id": "b9e333ed-11e6-4894-9106-b5c22d5a67e5"
+    },
+    {
+      "parameters": {
+        "url": "=https://drive.google.com/uc?export=download&id={{ $json.body.documents[0].url.split('/d/')[1].split('/')[0] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4208,
+        64
+      ],
+      "id": "8a438b40-3f83-4b0e-bdf2-f33abc5c5fc0",
+      "name": "Download The Evidence"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=data",
+        "options": {
+          "systemMessage": "Ето съдържанието на документ, качен като доказателство. Моля, премахни всички лични данни (ЕГН, адреси, телефонни номера) и остави само фактологията, важна за делото."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        4672,
+        64
+      ],
+      "id": "68ae7057-fabc-4ddd-ba1e-eadfbe80582f",
+      "name": "Sanitization"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        544,
+        640
+      ],
+      "id": "8e5016de-f661-4d5d-a875-653ef9fb1bbb",
+      "name": "Return Summary"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.case_id }}",
+        "options": {
+          "systemMessage": "=Here is the information about the case in raw JSON format. Please analyze it and produce a concise summary.\n\nWrite the summary in the same language as the input information - {{ $json.language }}.\n\n\n{{ $json.subject }}{{ $json.message }}{{ $json.company }}{{ $json.additional_info }}\n\nAdditionally, provide an assessment, expressed as a percentage from 0 to 100, of the likelihood that this case can be successfully won."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        256,
+        640
+      ],
+      "id": "7069927f-135d-4712-966d-4ddfdab1d20f",
+      "name": "Summary Generation"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        576,
+        -192
+      ],
+      "id": "62dd4757-9833-4172-8287-7f10f7bd754c",
+      "name": "Return Questions"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.case_id }}",
+        "tableName": "=chat_history"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        288,
+        0
+      ],
+      "id": "343f3189-7a09-40ee-ba26-1f30373da7a4",
+      "name": "Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "oabhewUAebkIE8rT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        288,
+        288
+      ],
+      "id": "67b8dd22-a4a6-4ced-95c2-6c4af165cd3d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "legal_cases_v2",
+          "mode": "list",
+          "cachedResultName": "legal_cases_v2"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "case_id": "={{ $json.body.case_id }}",
+            "subject": "={{ $json.body.subject }}",
+            "language": "={{ $json.body.language }}",
+            "message": "={{ $json.body.message }}",
+            "company": "={{ $json.body.company }}",
+            "created_at": "={{ $json.body.date }}",
+            "status": "start"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "case_id",
+              "displayName": "case_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        16,
+        -192
+      ],
+      "id": "69dd1188-2517-44b1-be13-b535e0d285e5",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "oabhewUAebkIE8rT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "legal_cases_v2",
+          "mode": "list",
+          "cachedResultName": "legal_cases_v2"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "case_id": "={{ $json.case_id }}",
+            "status": "collecting additional info",
+            "additional_info": "={{ $json.answers }}"
+          },
+          "matchingColumns": [
+            "case_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "case_id",
+              "displayName": "case_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "additional_info",
+              "displayName": "additional_info",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "object",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        80,
+        288
+      ],
+      "id": "8f222f73-48d0-416b-b158-822fded2c774",
+      "name": "Update rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "oabhewUAebkIE8rT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "get-summary",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -144,
+        640
+      ],
+      "id": "2d0ba015-0dfd-49f8-83cb-ffe338ae17bc",
+      "name": "Get Summary",
+      "webhookId": "82f36ef0-c659-4754-9526-593b89f4eeed"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9d174752-2e15-4d46-9b57-6dbae40bb379",
+              "leftValue": "={{ $json.body.user_confirm_summary }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        64,
+        1024
+      ],
+      "id": "00a44065-fe02-423d-a842-ca93a7131590",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "path": "confirm-summary",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -160,
+        1024
+      ],
+      "id": "7b51e0ae-ab3e-44dd-816c-584f6ddac1a8",
+      "name": "Confirm Summary",
+      "webhookId": "6581e7ed-fa39-4f51-8848-6a531d40d81b"
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        336,
+        944
+      ],
+      "id": "1704cdd8-ab08-4fb0-95d2-c1bf2b959a24",
+      "name": "Everything is OK"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "legal_cases_v2",
+          "mode": "list",
+          "cachedResultName": "legal_cases_v2"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "case_id",
+              "value": "={{ $json.body.case_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        64,
+        640
+      ],
+      "id": "5b9cf389-f447-43b9-bf7b-47028c14469b",
+      "name": "Select rows from a table",
+      "credentials": {
+        "postgres": {
+          "id": "oabhewUAebkIE8rT",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3632,
+        576
+      ],
+      "id": "d53dab08-ac99-4811-8d2c-c88bf48ed205",
+      "name": "Send message and wait for response",
+      "webhookId": "983a275b-4c14-4e35-9065-0714d782dec1",
+      "credentials": {
+        "smtp": {
+          "id": "zhpi22HAroMdyAVk",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "AlTdDV0ojgNgWrEP",
+          "mode": "list",
+          "cachedResultName": "My Sub-Workflow 1",
+          "cachedResultUrl": "/workflow/AlTdDV0ojgNgWrEP"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        5008,
+        64
+      ],
+      "id": "be0432b0-f74e-4470-a259-4af47cc23d1f",
+      "name": "Call 'My Sub-Workflow 1'"
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        336,
+        1104
+      ],
+      "id": "58c57d0d-20ba-4f5b-9055-cca8f40aed22",
+      "name": "Return Tupichko"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "body.documents",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        3744,
+        64
+      ],
+      "id": "14a2b7bb-b351-48a4-8f4f-9bd90059eceb",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bf0ffb0e-1478-4fcd-ae52-69b08cb26f5d",
+              "leftValue": "={{ $json.file_name }}",
+              "rightValue": "pdf",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3952,
+        64
+      ],
+      "id": "63c53b6c-9e46-4b19-b008-ae99a5bbe964",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.0-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.0-flash-lite"
+        },
+        "text": "Моля, извлечи целия текст от тази снимка дословно. Не променяй нищо, само ми върни текста.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        4304,
+        224
+      ],
+      "id": "23ed037f-88ed-4a45-8b05-a2d661f1d5ff",
+      "name": "Analyze an image",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "FWLN20j3byKffLpA",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        3984,
+        240
+      ],
+      "id": "373e075f-537a-4781-a2c6-fb0e0e4df6e1",
+      "name": "Download a file"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        208,
+        832
+      ],
+      "id": "3b9b49c4-aa10-4e25-a01d-a97fd75913df",
+      "name": "OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "KK1IF6etJJeqsDBg",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "o4-mini",
+          "mode": "list",
+          "cachedResultName": "o4-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        0
+      ],
+      "id": "da0c93f4-d98b-41a3-9772-f3c0a79f3d91",
+      "name": "OpenAI1",
+      "credentials": {
+        "openAiApi": {
+          "id": "KK1IF6etJJeqsDBg",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolSerpApi",
+      "typeVersion": 1,
+      "position": [
+        1280,
+        880
+      ],
+      "id": "0e2689a5-2e7b-4645-b651-bba3e1949be5",
+      "name": "SerpAPI",
+      "credentials": {
+        "serpApi": {
+          "id": "rzoLzloM0MbSeh4f",
+          "name": "SerpAPI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "gpt-4o"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1600,
+        864
+      ],
+      "id": "b619ded0-4522-4fc5-ae87-fde0eea0a48d",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "KK1IF6etJJeqsDBg",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list"
+        },
+        "builtInTools": {
+          "webSearch": {
+            "searchContextSize": "medium",
+            "allowedDomains": ""
+          }
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1024,
+        880
+      ],
+      "id": "f8dae867-c502-40e1-b21b-21678b26af70",
+      "name": "OpenAI2",
+      "credentials": {
+        "openAiApi": {
+          "id": "KK1IF6etJJeqsDBg",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "legal_cases_v2",
+          "mode": "list",
+          "cachedResultName": "legal_cases_v2"
+        },
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "case_id",
+              "value": "={{ $json.body.case_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        864,
+        688
+      ],
+      "id": "db9476a0-4150-477d-9750-fccc9bca2ff6",
+      "name": "Get Information About Case",
+      "credentials": {
+        "postgres": {
+          "id": "oabhewUAebkIE8rT",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Additional Info Import": [
+      {
+        "json": {
+          "case_id": "1",
+          "answers": [
+            {
+              "id": 1,
+              "question": "Имате ли сключен писмен трудов договор с работодателя?",
+              "answer": "Да, имам безсрочен трудов договор, подписан на 15.03.2024 г."
+            },
+            {
+              "id": 2,
+              "question": "За какъв период от време е била платена последната Ви заплата и кога е била получена?",
+              "answer": "Последната заплата, която получих, беше за месец Октомври 2025 г. Получих я на 20.11.2025 г."
+            },
+            {
+              "id": 3,
+              "question": "Имате ли документ, който да доказва размера на уговореното трудово възнаграждение?",
+              "answer": "Да, разполагам с копие от трудовия договор, където пише брутна заплата 2500 лв."
+            },
+            {
+              "id": 4,
+              "question": "Получавали ли сте фишове за заплата или други документи, удостоверяващи Вашите заплати и удръжки, през последните 3 месеца?",
+              "answer": "Не, работодателят отказва да ми предостави фишове за последните 3 месеца."
+            },
+            {
+              "id": 5,
+              "question": "Опитвали ли сте се да се свържете с работодателя си, за да обсъдите проблема с неплатените заплати?",
+              "answer": "Звънях му многократно и писах имейли. Той отговаря, че 'фирмата има временни затруднения' и да изчакам."
+            },
+            {
+              "id": 6,
+              "question": "Имате ли доказателства за положен труд през тези 3 месеца?",
+              "answer": "Да, пазя си кореспонденцията в служебния имейл и логове от влизане в системата."
+            },
+            {
+              "id": 7,
+              "question": "Какъв е начинът на плащане на заплатата Ви – по банков път или в брой?",
+              "answer": "По банков път."
+            },
+            {
+              "id": 8,
+              "question": "Прекратено ли е вече трудовото Ви правоотношение или все още сте на работа при този работодател?",
+              "answer": "Все още се водя на работа, не съм подавал молба за напускане."
+            },
+            {
+              "id": 9,
+              "question": "Има ли други служители в същата фирма, които също не са получили заплатите си?",
+              "answer": "Да, целият ни отдел (около 5 човека) е в същото положение."
+            },
+            {
+              "id": 10,
+              "question": "Осигуровките Ви плащат ли се редовно от работодателя, въпреки че не получавате заплата?",
+              "answer": "Проверих в НОИ с ПИК код и видях, че за последните 2 месеца липсват данни за осигуровки."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Generating Additional Questions": {
+      "main": [
+        [
+          {
+            "node": "Return Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Additional Info Import": {
+      "main": [
+        [
+          {
+            "node": "Update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evidence Import": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitization Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Sanitization",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classificator": {
+      "main": [
+        [
+          {
+            "node": "Draft Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initial Import": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Generation": {
+      "main": [
+        [
+          {
+            "node": "Send Status (Draft Generation)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read PDF": {
+      "main": [
+        [
+          {
+            "node": "Sanitization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download The Evidence": {
+      "main": [
+        [
+          {
+            "node": "Read PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summary Generation": {
+      "main": [
+        [
+          {
+            "node": "Return Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres": {
+      "ai_memory": [
+        [
+          {
+            "node": "Generating Additional Questions",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Generating Additional Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Summary": {
+      "main": [
+        [
+          {
+            "node": "Select rows from a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Everything is OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Tupichko",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Summary": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select rows from a table": {
+      "main": [
+        [
+          {
+            "node": "Summary Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitization": {
+      "main": [
+        [
+          {
+            "node": "Call 'My Sub-Workflow 1'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Download The Evidence",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analyze an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze an image": {
+      "main": [
+        [
+          {
+            "node": "Sanitization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summary Generation",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generating Additional Questions",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Everything is OK": {
+      "main": [
+        [
+          {
+            "node": "Get Information About Case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Draft Generation",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpAPI": {
+      "ai_tool": [
+        [
+          {
+            "node": "Classificator",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Classificator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Information About Case": {
+      "main": [
+        [
+          {
+            "node": "Classificator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "983c1cb7-f9bc-4a91-8fb4-d9a7c919429b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5acf593be9c96df6684b78c243ee944a1d56166317fede21b8d109422eb1d589"
+  },
+  "id": "kYW9u047qsTJqZmBuiUCq",
+  "tags": []
+}
