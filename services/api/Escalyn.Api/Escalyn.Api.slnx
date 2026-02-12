@@ -1,7 +1,3 @@
 <Solution>
-  <Project Path="../Escalyn.Api.Data.Models/Escalyn.Api.Data.Models.csproj" Id="f31d2da8-f99e-4c1e-80e1-510920dd1f62" />
-  <Project Path="../Escalyn.Api.Data/Escalyn.Api.Data.csproj" Id="be3b1661-0d01-4dd4-9438-3474b113fbd8" />
-  <Project Path="../Escalyn.Api.GCommon/Escalyn.Api.GCommon.csproj" Id="38682403-95e8-463c-8808-976d21e3ca68" />
-  <Project Path="../Escalyn.Api.Services/Escalyn.Api.Services.csproj" Id="017c7d24-a86a-4aac-bf83-39c89a496b4f" />
   <Project Path="Escalyn.Api.csproj" />
 </Solution>
