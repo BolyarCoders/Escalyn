@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,13 +18,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Escalyn.Api.Data\Escalyn.Api.Data.csproj" />
-    <ProjectReference Include="..\Escalyn.Api.Middleware\Escalyn.Api.Middleware.csproj" />
-    <ProjectReference Include="..\Escalyn.Api.Services\Escalyn.Api.Services.csproj" />
+    <ProjectReference Include="..\Escalyn.Api.Data.Models\Escalyn.Api.Data.Models.csproj" />
   </ItemGroup>
 
 </Project>
