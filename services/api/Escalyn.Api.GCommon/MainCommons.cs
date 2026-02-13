@@ -10,5 +10,11 @@ namespace Escalyn.Api.GCommon
     {
         public const int NameMaxLength = 70;
         public const int LanguageMaxLength = 30;
+
+        public class CaseCommons
+        {
+            public const int StatusMaxLength = 30;
+            public const int DescriptionMaxLength = 1000000; //test - samo za MVP
+        }
     }
 }

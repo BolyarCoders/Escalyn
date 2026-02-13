@@ -16,6 +16,7 @@ namespace Escalyn.Api.Data
         {
         }
         public DbSet<User> Users { get; set; }
+        public DbSet<Case> Cases { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -34,6 +35,21 @@ namespace Escalyn.Api.Data
                 entity.Property(e => e.NhostUserId);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW() AT TIME ZONE 'UTC'");
                 entity.Property(e => e.UpdatedAt).HasDefaultValueSql("NOW() AT TIME ZONE 'UTC'");
+            });
+
+            modelBuilder.Entity<Case>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Description).IsRequired().HasMaxLength(CaseCommons.DescriptionMaxLength);
+                entity.Property(e => e.Company).IsRequired().HasMaxLength(NameMaxLength);
+                entity.Property(e => e.Subject).IsRequired().HasMaxLength(NameMaxLength);
+                entity.Property(e => e.Language).IsRequired().HasMaxLength(LanguageMaxLength);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW() AT TIME ZONE 'UTC'");
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(CaseCommons.StatusMaxLength);
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.Cases)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

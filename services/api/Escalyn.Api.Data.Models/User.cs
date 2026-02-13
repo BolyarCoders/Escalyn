@@ -30,5 +30,6 @@ namespace Escalyn.Api.Data.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }
+        public List<Case> Cases { get; set; } = new List<Case>();
     }
 }
