@@ -590,8 +590,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   caseHeader: {
-    marginHorizontal: 24,
-    marginTop: 100,
     marginBottom: 24,
     borderRadius: 32,
     overflow: 'hidden',
@@ -599,8 +597,11 @@ const styles = StyleSheet.create({
   caseHeaderGradient: {
     padding: 32,
     alignItems: 'center',
+        paddingTop:60,
+
   },
   floatingBack: {
+    marginTop:60,
     position: 'absolute',
     top: 20,
     left: 20,

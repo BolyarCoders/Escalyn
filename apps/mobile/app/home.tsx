@@ -46,50 +46,51 @@ const Index = () => {
     ]).start();
   }, []);
 
-  const disputeTypes: DisputeType[] = [
-    {
+const disputeTypes: DisputeType[] = [
+  {
     id: "1",
     title: "Flight Compensation",
     subtitle: "EU261 claims & delays",
     icon: "airplane",
-    gradient: ["#667eea", "#764ba2"], // original, perfect for Airlines
+    gradient: ["#667eea", "#764ba2"], // flagship
   },
   {
     id: "2",
     title: "Telecom Disputes",
     subtitle: "Bills & service issues",
     icon: "wifi",
-    gradient: ["#5c6cef", "#7a85f5", "#4e59c2"], // soft blues and purple accents
+    gradient: ["#5f72bd", "#9b23ea"], // blue → violet (signal / tech)
   },
   {
     id: "3",
     title: "E-commerce Returns",
     subtitle: "Refunds & chargebacks",
     icon: "cart",
-    gradient: ["#6b7ef8", "#a391f7", "#5260d1"], // light + medium + deep blues for depth
+    gradient: ["#43cea2", "#185a9d"], // teal → deep blue (commerce / trust)
   },
   {
     id: "4",
     title: "Banking Claims",
     subtitle: "Unauthorized charges",
     icon: "card",
-    gradient: ["#5f70ea", "#8c7ff2", "#3d50b5"], // muted blues + violet for a sleek feel
+    gradient: ["#4b6cb7", "#182848"], // deep finance blue (serious / premium)
   },
   {
     id: "5",
     title: "Insurance Cases",
     subtitle: "Policies & claims",
     icon: "shield-checkmark",
-    gradient: ["#667eea", "#8c7ef7", "#4b57c1"], // matching Airlines vibe
+    gradient: ["#6a11cb", "#2575fc"], // confident violet → blue (protection)
   },
   {
     id: "6",
     title: "Utilities Issues",
     subtitle: "Power, water, internet",
     icon: "flash",
-    gradient: ["#5d6dee", "#7e83f4", "#3f4eb8"], // fresh blue gradient, soft but dynamic
+    gradient: ["#2193b0", "#6dd5ed"], // lighter infrastructure blue (energy)
   },
-  ];
+];
+
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -128,7 +129,6 @@ const Index = () => {
             source={require('@/assets/icons/logo.png')}
             style={styles.logo}
           />
-          <Text style={styles.headerTitle}>ESCALYN</Text>
         </View>
 
         <TouchableOpacity>
@@ -162,9 +162,7 @@ const Index = () => {
               Your Rights,{"\n"}
               <Text style={styles.heroTitleAccent}>Automated</Text>
             </Text>
-            <Text style={styles.heroSubtitle}>
-              We handle the complexity. You get what you deserve.
-            </Text>
+       
 
             {/* Stats Pills */}
             <View style={styles.statsRow}>
@@ -188,7 +186,7 @@ const Index = () => {
 
         {/* Active Case - Floating Card */}
         <View style={styles.activeSection}>
-          <Text style={styles.sectionLabel}>ACTIVE CASE</Text>
+          <Text style={styles.sectionLabel}>ACTIVE CASES</Text>
 
           <LinearGradient
             colors={["rgba(102, 126, 234, 0.15)", "rgba(118, 75, 162, 0.15)"]}
@@ -504,8 +502,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', // вертикално центриране на logo + текст
   },
   logo: {
-    width: 30,
-    height: 40,
+    width: 130,
+    height: 52,
     marginRight: 10, // отстояние между логото и текста
   },
   headerTitle: {
@@ -815,6 +813,8 @@ const styles = StyleSheet.create({
     height: 100,
   },
   fab: {
+       borderColor:"rgba(240,240,240,0.7)",
+    borderWidth: 1,
     position: "absolute",
     bottom: 32,
     right: 24,
@@ -826,6 +826,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   fabGradient: {
+ 
     width: 60,
     height: 60,
     borderRadius: 30,

@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 14,
   },
   orbContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     top: 60,
-    left: 24,
+    left: 14,
     zIndex: 10,
   },
   backButtonBg: {
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   formCard: {
     overflow:'hidden',
     borderRadius: 32,
-    padding: 28,
+    padding: 18,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 14,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 10,
     gap: 12,
   },
   input: {

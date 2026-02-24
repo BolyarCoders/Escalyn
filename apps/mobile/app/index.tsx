@@ -104,7 +104,7 @@ const LandingPage = () => {
       label: "Success Rate",
       sublabel: "Cases resolved in your favor",
       icon: "trophy",
-      gradient: ["#667eea", "#764ba2"],
+      gradient: ["#667eea", "#764ba2"], // keep original
     },
     {
       id: "2",
@@ -112,7 +112,7 @@ const LandingPage = () => {
       label: "Recovered",
       sublabel: "Total compensation won",
       icon: "cash",
-      gradient: ["#f093fb", "#f5576c"],
+      gradient: ["#5f72bd", "#9b23ea"], // blue → violet (money / premium feel)
     },
     {
       id: "3",
@@ -120,7 +120,7 @@ const LandingPage = () => {
       label: "Cases Won",
       sublabel: "Globally across all sectors",
       icon: "checkmark-circle",
-      gradient: ["#4facfe", "#00f2fe"],
+      gradient: ["#43cea2", "#185a9d"], // teal → deep blue (success / trust)
     },
   ];
 
@@ -205,10 +205,18 @@ const LandingPage = () => {
         <View style={[styles.mesh, styles.mesh4]} />
       </View>
 
-      {/* Floating Header */}
+      {/*  Header */}
       <Animated.View style={[styles.header, { opacity: headerOpacity }]}>
-        <BlurView intensity={80} tint="dark" style={styles.headerBlur}>
-          <Text style={styles.headerLogo}>ESCALYN</Text>
+        <BlurView
+          intensity={80}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={styles.headerBlur}
+        >
+          <Image
+            source={require("@/assets/icons/logo.png")}
+            style={styles.logo}
+          />{" "}
           <TouchableOpacity style={styles.loginButton}>
             <Text style={styles.loginText}>Sign In</Text>
           </TouchableOpacity>
@@ -277,9 +285,8 @@ const LandingPage = () => {
                 />
               </TouchableOpacity>
             </View>
-            
 
-            {/* Proof Points */}
+            Proof Points
             <View style={styles.proofPoints}>
               <View style={styles.proofPoint}>
                 <Ionicons name="checkmark-circle" size={16} color="#4ade80" />
@@ -348,8 +355,10 @@ const LandingPage = () => {
 
           {/* Global Map Visualization */}
           <View style={styles.mapContainer}>
-            <LinearGradient
-              colors={["rgba(102, 126, 234, 0.1)", "rgba(102, 126, 234, 0.05)"]}
+            <BlurView
+              intensity={60}
+              tint="dark"
+              experimentalBlurMethod="dimezisBlurView"
               style={styles.mapGradient}
             >
               <View style={styles.mapHeader}>
@@ -380,7 +389,7 @@ const LandingPage = () => {
                   <Text style={styles.regionValue}>508 cases</Text>
                 </View>
               </View>
-            </LinearGradient>
+            </BlurView>
           </View>
         </View>
 
@@ -459,8 +468,10 @@ const LandingPage = () => {
               { icon: "flash", name: "Utilities", color: "#fee140" },
             ].map((industry, index) => (
               <View key={index} style={styles.industryCard}>
-                <LinearGradient
-                  colors={[industry.color + "20", industry.color + "10"]}
+                <BlurView
+                  intensity={60}
+                  tint="dark"
+                  experimentalBlurMethod="dimezisBlurView"
                   style={styles.industryGradient}
                 >
                   <Ionicons
@@ -469,7 +480,7 @@ const LandingPage = () => {
                     color={industry.color}
                   />
                   <Text style={styles.industryName}>{industry.name}</Text>
-                </LinearGradient>
+                </BlurView>
               </View>
             ))}
           </View>
@@ -477,8 +488,10 @@ const LandingPage = () => {
 
         {/* Social Proof */}
         <View style={styles.socialProof}>
-          <LinearGradient
-            colors={["rgba(102, 126, 234, 0.15)", "rgba(118, 75, 162, 0.15)"]}
+          <BlurView
+            intensity={60}
+            tint="dark"
+            experimentalBlurMethod="dimezisBlurView"
             style={styles.socialProofGradient}
           >
             <View style={styles.socialProofContent}>
@@ -507,7 +520,7 @@ const LandingPage = () => {
                 <Text style={styles.ratingText}>4.8/5 from 2,847 reviews</Text>
               </View>
             </View>
-          </LinearGradient>
+          </BlurView>
         </View>
 
         {/* Final CTA */}
@@ -536,11 +549,13 @@ const LandingPage = () => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerLogo}>ESCALYN</Text>
+          <Image
+            source={require("@/assets/icons/logo.png")}
+            style={styles.logo}
+          />
           <Text style={styles.footerTagline}>
             Automated dispute resolution for everyone
           </Text>
-
           <View style={styles.footerLinks}>
             <TouchableOpacity>
               <Text style={styles.footerLink}>About</Text>
@@ -555,7 +570,6 @@ const LandingPage = () => {
               <Text style={styles.footerLink}>Contact</Text>
             </TouchableOpacity>
           </View>
-
           <Text style={styles.copyright}>
             © 2024 Escalyn. All rights reserved.
           </Text>
@@ -620,7 +634,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 60,
+    paddingTop: 40,
     paddingHorizontal: 24,
     paddingBottom: 16,
   },
@@ -662,6 +676,11 @@ const styles = StyleSheet.create({
     borderColor: "rgba(102, 126, 234, 0.3)",
     marginBottom: 24,
     gap: 8,
+  },
+  logo: {
+    width: 130,
+    height: 52,
+    marginRight: 10, // отстояние между логото и текста
   },
   badgeDot: {
     width: 6,
@@ -945,6 +964,7 @@ const styles = StyleSheet.create({
     marginBottom: 80,
   },
   socialProofGradient: {
+    overflow: "hidden",
     borderRadius: 24,
     padding: 32,
     borderWidth: 1,

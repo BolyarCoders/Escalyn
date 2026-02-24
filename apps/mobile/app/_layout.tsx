@@ -1,4 +1,3 @@
-// app/_layout.tsx
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
@@ -7,11 +6,13 @@ export default function Layout() {
     <>
       <Stack
         screenOptions={{
-          headerShown: false, // Show header for all screens
-          animation: "fade",
+          headerShown: false,
+          contentStyle: {
+            backgroundColor: "#17255A", // your app background
+          },
         }}
       />
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </>
   );
 }
