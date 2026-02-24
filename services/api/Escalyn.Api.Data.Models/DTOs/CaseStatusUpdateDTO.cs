@@ -10,10 +10,9 @@ namespace Escalyn.Api.Data.Models.DTOs
     public class CaseStatusUpdateDTO
     {
         public Guid CaseId { get; set; }
-        public string Type { get; set; }
         public string Status { get; set; }
         public string CompanyEmail { get; set; }
-        public List<QuestionDTO> Questions { get; set; } = new List<QuestionDTO>();
+        public string Summary { get; set; }
 
     }
 }

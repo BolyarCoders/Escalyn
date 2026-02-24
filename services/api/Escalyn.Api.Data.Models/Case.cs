@@ -14,9 +14,11 @@ namespace Escalyn.Api.Data.Models
         public Guid UserId { get; set; }
         public string Description { get; set; }
         public string Company { get; set; }
+        public string CompanyEmail { get; set; }
         public string Subject { get; set; }
         public string Language { get; set; } // ot User
         public DateTime CreatedAt { get; set; }
         public string Status { get; set; }  
+        public string LastSummary { get; set; }
     }
 }
