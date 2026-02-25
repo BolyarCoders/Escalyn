@@ -196,11 +196,12 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
-app.UseMiddleware<GlobalExceptionHandler>();
-app.UseMiddleware<TokenValidationMiddleware>();
+//app.UseMiddleware<GlobalExceptionHandler>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+//app.UseMiddleware<TokenValidationMiddleware>();
 
 app.MapControllers();
 

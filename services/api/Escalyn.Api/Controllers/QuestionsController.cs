@@ -8,7 +8,6 @@ namespace Escalyn.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class QuestionsController : Controller
     {
         private readonly IQuestionRepository _questionRepository;

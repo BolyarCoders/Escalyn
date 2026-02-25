@@ -1,5 +1,6 @@
 ﻿using Escalyn.Api.Data.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -52,6 +53,16 @@ namespace Escalyn.Api.Data
                     .WithMany(u => u.Cases)
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+                entity.Property(e => e.Summaries)
+       .HasConversion(
+           v => string.Join(',', v),
+           v => v.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
+       )
+       .Metadata.SetValueComparer(new ValueComparer<List<string>>(
+           (c1, c2) => c1.SequenceEqual(c2),
+           c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+           c => c.ToList()
+       ));
             });
 
             modelBuilder.Entity<QuestionBody>(entity =>

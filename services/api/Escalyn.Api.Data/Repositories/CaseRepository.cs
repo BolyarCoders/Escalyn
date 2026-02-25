@@ -21,7 +21,6 @@ namespace Escalyn.Api.Data.Repositories
         public async Task<Case?> GetByIdAsync(Guid id)
         {
             return await _context.Cases
-                .Include(c => c.User)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
 

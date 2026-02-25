@@ -13,6 +13,6 @@ namespace Escalyn.Api.Data.Models
         public Guid Id { get; set; }
         public Case Case { get; set; }
         public Guid CaseId { get; set; }
-        public ICollection<Question> Questions { get; set; }
+        public List<Question> Questions { get; set; }
     }
 }

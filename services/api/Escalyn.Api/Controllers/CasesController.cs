@@ -10,7 +10,6 @@ namespace Escalyn.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class CasesController : ControllerBase
     {
         private readonly ICaseRepository _caseRepository;
@@ -63,7 +62,7 @@ namespace Escalyn.Api.Controllers
                 {
                     return Forbid();
                 }
-                Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
+                Case? caseFromDb = await _caseRepository.GetByIdAsync(Guid.Parse(id));
                 if (caseFromDb == null)
                 {
                     return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });

@@ -19,7 +19,7 @@ namespace Escalyn.Api.Data.Models
         public string Language { get; set; } // ot User
         public DateTime CreatedAt { get; set; }
         public string Status { get; set; }  
-        public ICollection<string> Summaries { get; set; }
-        public ICollection<QuestionBody> Questions { get; set; }
+        public List<string> Summaries { get; set; }
+        public List<QuestionBody> Questions { get; set; }
     }
 }
