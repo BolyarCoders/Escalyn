@@ -15,5 +15,9 @@ namespace Escalyn.Api.Data.Models
         [JsonPropertyName("question")]
         public string QuestionAsStr { get; set; }
         public string Answer { get; set; }
+        [JsonIgnore]
+        public QuestionBody QuestionsBody { get; set; }
+        [JsonIgnore]
+        public Guid QuestionsBodyId { get; set; }
     }
 }

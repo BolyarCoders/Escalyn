@@ -31,6 +31,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ICaseRepository, CaseRepository>();
+builder.Services.AddScoped<IQuestionRepository, QuestionRepository>();
 
 
 builder.Services.AddScoped<INhostAuthService, NhostAuthService>();
