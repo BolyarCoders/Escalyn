@@ -77,8 +77,32 @@ namespace Escalyn.Api.Controllers
             {
                 return Forbid();
             }
-            
+
         }
-        
+
+        [HttpPost("cases/create")]
+        [Authorize ]
+        public async Task<IActionResult> CreateCase([FromBody] Case request)
+        {
+            try
+            {
+                Case newCase = new Case
+                {
+                    Description = request.Description,
+                    Company = request.Company,
+                    Subject = request.Subject,
+                    Language = request.Language,
+                    Status = "Open",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _caseRepository.CreateAsync(newCase);
+                return Ok(newCase);
+            }
+            catch
+            {
+                return Forbid();
+            }
+
+        }
     }
 }
