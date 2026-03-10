@@ -1,5 +1,6 @@
 ﻿using Escalyn.Api.Data.Models;
 using Escalyn.Api.Data.Models.DTOs;
+using Escalyn.Api.Data.Repositories;
 using Escalyn.Api.Data.Repositories.IRepositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -103,6 +104,31 @@ namespace Escalyn.Api.Controllers
                 return Forbid();
             }
 
+        }
+
+        [HttpPost]
+        [ProducesResponseType(typeof(Case), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CreateCase([FromBody] CaseCreateDTO dto)
+        {
+            //var userExists = await _userRepository.ExistsAsync(dto.UserId);
+            //if (!userExists)
+            //    return NotFound($"User with ID {dto.UserId} not found.");
+
+            Case toAdd = new Case()
+            {
+                UserId = dto.UserId,
+                Description = dto.Description,
+                Company = dto.Company,
+                CompanyEmail = dto.CompanyEmail,
+                Subject = dto.Subject,
+                Language = dto.Language,
+                Status = "Open", //testovo
+            };
+
+            var result = await _caseRepository.CreateAsync(toAdd);
+            return CreatedAtAction(nameof(GetCaseById), new { id = result.Id }, result);
         }
     }
 }
