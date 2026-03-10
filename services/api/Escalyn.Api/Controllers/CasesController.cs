@@ -125,6 +125,8 @@ namespace Escalyn.Api.Controllers
                 Subject = dto.Subject,
                 Language = dto.Language,
                 Status = "Open", //testovo
+                Summaries = new List<string>(),
+                Questions = new List<QuestionBody>()
             };
 
             var result = await _caseRepository.CreateAsync(toAdd);
