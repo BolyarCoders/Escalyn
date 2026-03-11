@@ -81,40 +81,12 @@ namespace Escalyn.Api.Controllers
 
         }
 
-        [HttpPost("cases/create")]
-        [Authorize ]
-        public async Task<IActionResult> CreateCase([FromBody] Case request)
-        {
-            try
-            {
-                Case newCase = new Case
-                {
-                    Description = request.Description,
-                    Company = request.Company,
-                    Subject = request.Subject,
-                    Language = request.Language,
-                    Status = "Open",
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _caseRepository.CreateAsync(newCase);
-                return Ok(newCase);
-            }
-            catch
-            {
-                return Forbid();
-            }
-
-        }
-
         [HttpPost]
         [ProducesResponseType(typeof(Case), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CreateCase([FromBody] CaseCreateDTO dto)
         {
-            //var userExists = await _userRepository.ExistsAsync(dto.UserId);
-            //if (!userExists)
-            //    return NotFound($"User with ID {dto.UserId} not found.");
 
             Case toAdd = new Case()
             {
@@ -124,13 +96,63 @@ namespace Escalyn.Api.Controllers
                 CompanyEmail = dto.CompanyEmail,
                 Subject = dto.Subject,
                 Language = dto.Language,
-                Status = "Open", //testovo
+                Status = dto.Status, //testovo
                 Summaries = new List<string>(),
                 Questions = new List<QuestionBody>()
             };
 
             var result = await _caseRepository.CreateAsync(toAdd);
             return CreatedAtAction(nameof(GetCaseById), new { id = result.Id }, result);
+        }
+
+        public async Task<IActionResult> DeleteCase(string id)
+        {
+            try
+            {
+                bool isValidGuid = Guid.TryParse(id, out Guid caseId);
+                if (!isValidGuid)
+                {
+                    return Forbid();
+                }
+                Case? caseFromDb = await _caseRepository.GetByIdAsync(Guid.Parse(id));
+                if (caseFromDb == null)
+                {
+                    return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
+                }
+                await _caseRepository.DeleteAsync(caseId);
+                return NoContent();
+            }
+            catch
+            {
+                return Forbid();
+            }
+        }
+
+        public async Task<IActionResult> GetCasesByUserId(string userId)
+        {
+            try
+            {
+                bool isValidGuid = Guid.TryParse(userId, out Guid userGuid);
+                if (!isValidGuid)
+                {
+                    return Forbid();
+                }
+                var cases = await _caseRepository.GetByUserIdAsync(userGuid);
+                var caseDtos = cases.Select(c => new CaseOutDTO
+                {
+                    CaseId = c.Id,
+                    Description = c.Description,
+                    Company = c.Company,
+                    Subject = c.Subject,
+                    Language = c.Language,
+                    CreatedAt = c.CreatedAt.ToString("O")
+                }).ToList();
+                return Ok(new { success = true, data = caseDtos });
+            }
+            catch
+            {
+                return Forbid();
+            }
         }
     }
 }

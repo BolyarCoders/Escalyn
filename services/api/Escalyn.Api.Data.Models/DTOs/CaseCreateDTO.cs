@@ -31,5 +31,7 @@ namespace Escalyn.Api.Data.Models.DTOs
 
         [MaxLength(10)]
         public string Language { get; set; }
+
+        public string Status { get; set; }
     }
 }
