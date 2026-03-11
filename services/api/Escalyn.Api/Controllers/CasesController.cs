@@ -128,31 +128,26 @@ namespace Escalyn.Api.Controllers
             }
         }
 
+        [HttpGet("user/{userId}/cases")]
         public async Task<IActionResult> GetCasesByUserId(string userId)
         {
-            try
+            bool isValidGuid = Guid.TryParse(userId, out Guid userGuid);
+            if (!isValidGuid)
+                return BadRequest(new { success = false, errorCode = "INVALID_GUID", message = "Invalid user ID format." });
+
+            var cases = await _caseRepository.GetByUserIdAsync(userGuid);
+
+            var caseDtos = cases.Select(c => new CaseOutDTO
             {
-                bool isValidGuid = Guid.TryParse(userId, out Guid userGuid);
-                if (!isValidGuid)
-                {
-                    return Forbid();
-                }
-                var cases = await _caseRepository.GetByUserIdAsync(userGuid);
-                var caseDtos = cases.Select(c => new CaseOutDTO
-                {
-                    CaseId = c.Id,
-                    Description = c.Description,
-                    Company = c.Company,
-                    Subject = c.Subject,
-                    Language = c.Language,
-                    CreatedAt = c.CreatedAt.ToString("O")
-                }).ToList();
-                return Ok(new { success = true, data = caseDtos });
-            }
-            catch
-            {
-                return Forbid();
-            }
+                CaseId = c.Id,
+                Description = c.Description,
+                Company = c.Company,
+                Subject = c.Subject,
+                Language = c.Language,
+                CreatedAt = c.CreatedAt.ToString("O")
+            }).ToList();
+
+            return Ok(new { success = true, data = caseDtos });
         }
     }
 }
