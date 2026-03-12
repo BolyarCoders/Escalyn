@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -29,12 +28,12 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // POST api/cases
-        // Full flow:
+        // Full flow (all n8n calls are GET per API docs):
         //   1. Persist the case in the DB
-        //   2. POST /webhook/initial-import  → may return clarifying questions
-        //   3. If questions returned, POST /webhook/additional-info with answers
-        //   4. GET  /webhook/get-summary     → AI summary text
-        //   5. POST /webhook/confirm-summary → confirm automatically (backend-driven)
+        //   2. GET /webhook/inital-import    → may return clarifying questions
+        //   3. GET /webhook/additional-info  → submit answers if questions returned
+        //   4. GET /webhook/get-summary      → AI summary text
+        //   5. GET /webhook/confirm-summary  → confirm summary
         // ─────────────────────────────────────────────────────────────
         [HttpPost]
         [ProducesResponseType(typeof(CaseOutDTO), StatusCodes.Status201Created)]
@@ -60,18 +59,16 @@ namespace Escalyn.Api.Controllers
 
             var http = _httpClientFactory.CreateClient();
 
-            // ── Step 1: Initial import ────────────────────────────────
-            var initialPayload = new
-            {
-                case_id = result.Id,
-                subject = result.Subject,
-                language = result.Language,
-                message = result.Description,
-                company = result.Company,
-                date = result.CreatedAt.ToString("yyyy-MM-dd")
-            };
+            // ── Step 1: Initial import (GET) ──────────────────────────
+            string initialUrl = $"{N8nBaseUrl}/webhook/inital-import" +
+                $"?case_id={result.Id}" +
+                $"&subject={Uri.EscapeDataString(result.Subject)}" +
+                $"&language={Uri.EscapeDataString(result.Language)}" +
+                $"&message={Uri.EscapeDataString(result.Description)}" +
+                $"&company={Uri.EscapeDataString(result.Company)}" +
+                $"&date={result.CreatedAt:yyyy-MM-dd}";
 
-            HttpResponseMessage initialResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/inital-import", initialPayload); // n8n has a typo in the deployed route (inital not initial)
+            HttpResponseMessage initialResponse = await http.GetAsync(initialUrl);
 
             if (!initialResponse.IsSuccessStatusCode)
             {
@@ -90,10 +87,9 @@ namespace Escalyn.Api.Controllers
             string responseType = root.TryGetProperty("type", out JsonElement typeEl) ? typeEl.GetString() ?? "" : "";
             List<QuestionDTO> returnedQuestions = new();
 
-            // If AI returned questions, check if caller supplied answers
+            // ── Step 2: Additional info (GET) — only if questions returned
             if (responseType != "success")
             {
-                // Parse questions from response data array
                 if (root.TryGetProperty("data", out JsonElement dataEl) && dataEl.ValueKind == JsonValueKind.Array)
                 {
                     int idx = 0;
@@ -110,19 +106,21 @@ namespace Escalyn.Api.Controllers
                     }
                 }
 
-                // ── Step 2: Additional info ───────────────────────────
-                var answersPayload = new
-                {
-                    case_id = result.Id,
-                    answers = returnedQuestions.Select((q, i) => new
+                // Serialize answers array as a JSON query param
+                string answersJson = Uri.EscapeDataString(JsonSerializer.Serialize(
+                    returnedQuestions.Select((q, i) => new
                     {
                         id = i + 1,
                         question = q.Question,
                         answer = q.Answer
                     })
-                };
+                ));
 
-                HttpResponseMessage additionalResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/additional-info", answersPayload);
+                string additionalUrl = $"{N8nBaseUrl}/webhook/additional-info" +
+                    $"?case_id={result.Id}" +
+                    $"&answers={answersJson}";
+
+                HttpResponseMessage additionalResponse = await http.GetAsync(additionalUrl);
 
                 if (!additionalResponse.IsSuccessStatusCode)
                 {
@@ -135,8 +133,9 @@ namespace Escalyn.Api.Controllers
                 }
             }
 
-            // ── Step 3a: Get summary ──────────────────────────────────
-            HttpResponseMessage summaryResponse = await http.GetAsync($"{N8nBaseUrl}/webhook/get-summary?caseId={result.Id}");
+            // ── Step 3a: Get summary (GET) ────────────────────────────
+            HttpResponseMessage summaryResponse = await http.GetAsync(
+                $"{N8nBaseUrl}/webhook/get-summary?caseId={result.Id}");
 
             string summaryText = string.Empty;
             if (summaryResponse.IsSuccessStatusCode)
@@ -144,25 +143,20 @@ namespace Escalyn.Api.Controllers
                 string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
                 using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
                 if (summaryJson.RootElement.TryGetProperty("output", out JsonElement outputEl))
-                {
                     summaryText = outputEl.GetString() ?? string.Empty;
-                }
             }
-            // Gracefully continue even if summary is unavailable (partial working per docs)
+            // Gracefully continue even if summary is unavailable (step 3 is partially working per docs)
 
-            // ── Step 3b: Confirm summary ──────────────────────────────
+            // ── Step 3b: Confirm summary (GET) ────────────────────────
             if (!string.IsNullOrEmpty(summaryText))
             {
-                var confirmPayload = new
-                {
-                    case_id = result.Id,
-                    user_confirm_summary = true
-                };
+                string confirmUrl = $"{N8nBaseUrl}/webhook/confirm-summary" +
+                    $"?case_id={result.Id}" +
+                    $"&user_confirm_summary=true";
 
-                await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/confirm-summary", confirmPayload);
+                await http.GetAsync(confirmUrl);
                 // Response is informational; don't fail the request if this times out
 
-                // Persist the summary locally
                 result.Summaries.Add(summaryText);
                 await _caseRepository.UpdateAsync(result);
             }
@@ -251,7 +245,7 @@ namespace Escalyn.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // DELETE api/cases/{id}  (was missing [HttpDelete] attribute)
+        // DELETE api/cases/{id}
         // ─────────────────────────────────────────────────────────────
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCase(string id)
@@ -298,16 +292,6 @@ namespace Escalyn.Api.Controllers
             }).ToList();
 
             return Ok(new { success = true, data = caseDtos });
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        // Helpers
-        // ─────────────────────────────────────────────────────────────
-        private static async Task<HttpResponseMessage> PostJsonAsync(HttpClient http, string url, object payload)
-        {
-            string json = JsonSerializer.Serialize(payload);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            return await http.PostAsync(url, content);
         }
     }
 }
