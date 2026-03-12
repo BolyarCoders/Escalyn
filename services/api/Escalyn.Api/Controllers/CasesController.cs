@@ -71,7 +71,7 @@ namespace Escalyn.Api.Controllers
                 date = result.CreatedAt.ToString("yyyy-MM-dd")
             };
 
-            HttpResponseMessage initialResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/initial-import", initialPayload);
+            HttpResponseMessage initialResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/inital-import", initialPayload); // n8n has a typo in the deployed route (inital not initial)
 
             if (!initialResponse.IsSuccessStatusCode)
             {
