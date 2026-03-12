@@ -2,12 +2,8 @@
 using Escalyn.Api.Data.Models.DTOs;
 using Escalyn.Api.Data.Repositories;
 using Escalyn.Api.Data.Repositories.IRepositories;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Net.Http;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace Escalyn.Api.Controllers
 {
@@ -29,11 +25,11 @@ namespace Escalyn.Api.Controllers
         // ─────────────────────────────────────────────────────────────
         // POST api/cases
         // Full flow (all n8n calls are GET per API docs):
-        //   1. Persist the case in the DB
-        //   2. GET /webhook/inital-import    → may return clarifying questions
-        //   3. GET /webhook/additional-info  → submit answers if questions returned
-        //   4. GET /webhook/get-summary      → AI summary text
-        //   5. GET /webhook/confirm-summary  → confirm summary
+        //   1. Persist the case in DB
+        //   2. GET /webhook/inital-import   → may return clarifying questions
+        //   3. GET /webhook/additional-info → submit answers if questions returned
+        //   4. GET /webhook/get-summary     → AI summary text
+        //   5. GET /webhook/confirm-summary → confirm summary
         // ─────────────────────────────────────────────────────────────
         [HttpPost]
         [ProducesResponseType(typeof(CaseOutDTO), StatusCodes.Status201Created)]
@@ -56,8 +52,8 @@ namespace Escalyn.Api.Controllers
             };
 
             Case result = await _caseRepository.CreateAsync(toAdd);
-
             var http = _httpClientFactory.CreateClient();
+            List<QuestionDTO> returnedQuestions = new();
 
             // ── Step 1: Initial import (GET) ──────────────────────────
             string initialUrl = $"{N8nBaseUrl}/webhook/inital-import" +
@@ -80,72 +76,78 @@ namespace Escalyn.Api.Controllers
                 });
             }
 
+            // Guard: n8n may return 200 with an empty body
             string initialBody = await initialResponse.Content.ReadAsStringAsync();
-            using JsonDocument initialJson = JsonDocument.Parse(initialBody);
-            JsonElement root = initialJson.RootElement;
-
-            string responseType = root.TryGetProperty("type", out JsonElement typeEl) ? typeEl.GetString() ?? "" : "";
-            List<QuestionDTO> returnedQuestions = new();
-
-            // ── Step 2: Additional info (GET) — only if questions returned
-            if (responseType != "success")
+            if (!string.IsNullOrWhiteSpace(initialBody))
             {
-                if (root.TryGetProperty("data", out JsonElement dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                using JsonDocument initialJson = JsonDocument.Parse(initialBody);
+                JsonElement root = initialJson.RootElement;
+                string responseType = root.TryGetProperty("type", out JsonElement typeEl)
+                    ? typeEl.GetString() ?? "success"
+                    : "success";
+
+                // ── Step 2: Additional info (GET) — only if AI returned questions
+                if (responseType != "success")
                 {
-                    int idx = 0;
-                    foreach (JsonElement q in dataEl.EnumerateArray())
+                    if (root.TryGetProperty("data", out JsonElement dataEl) && dataEl.ValueKind == JsonValueKind.Array)
                     {
-                        returnedQuestions.Add(new QuestionDTO
+                        int idx = 0;
+                        foreach (JsonElement q in dataEl.EnumerateArray())
                         {
-                            Question = q.GetString() ?? $"Question {idx + 1}",
-                            Answer = dto.Answers != null && idx < dto.Answers.Count
-                                           ? dto.Answers[idx]
-                                           : string.Empty
-                        });
-                        idx++;
+                            returnedQuestions.Add(new QuestionDTO
+                            {
+                                Question = q.GetString() ?? $"Question {idx + 1}",
+                                Answer = dto.Answers != null && idx < dto.Answers.Count
+                                               ? dto.Answers[idx]
+                                               : string.Empty
+                            });
+                            idx++;
+                        }
                     }
-                }
 
-                // Serialize answers array as a JSON query param
-                string answersJson = Uri.EscapeDataString(JsonSerializer.Serialize(
-                    returnedQuestions.Select((q, i) => new
+                    string answersJson = Uri.EscapeDataString(JsonSerializer.Serialize(
+                        returnedQuestions.Select((q, i) => new
+                        {
+                            id = i + 1,
+                            question = q.Question,
+                            answer = q.Answer
+                        })
+                    ));
+
+                    string additionalUrl = $"{N8nBaseUrl}/webhook/additional-info" +
+                        $"?case_id={result.Id}" +
+                        $"&answers={answersJson}";
+
+                    HttpResponseMessage additionalResponse = await http.GetAsync(additionalUrl);
+
+                    if (!additionalResponse.IsSuccessStatusCode)
                     {
-                        id = i + 1,
-                        question = q.Question,
-                        answer = q.Answer
-                    })
-                ));
-
-                string additionalUrl = $"{N8nBaseUrl}/webhook/additional-info" +
-                    $"?case_id={result.Id}" +
-                    $"&answers={answersJson}";
-
-                HttpResponseMessage additionalResponse = await http.GetAsync(additionalUrl);
-
-                if (!additionalResponse.IsSuccessStatusCode)
-                {
-                    return StatusCode(StatusCodes.Status502BadGateway, new
-                    {
-                        success = false,
-                        errorCode = "N8N_ADDITIONAL_INFO_FAILED",
-                        message = "Failed to reach the automation service (additional-info)."
-                    });
+                        return StatusCode(StatusCodes.Status502BadGateway, new
+                        {
+                            success = false,
+                            errorCode = "N8N_ADDITIONAL_INFO_FAILED",
+                            message = "Failed to reach the automation service (additional-info)."
+                        });
+                    }
                 }
             }
 
             // ── Step 3a: Get summary (GET) ────────────────────────────
+            string summaryText = string.Empty;
             HttpResponseMessage summaryResponse = await http.GetAsync(
                 $"{N8nBaseUrl}/webhook/get-summary?caseId={result.Id}");
 
-            string summaryText = string.Empty;
             if (summaryResponse.IsSuccessStatusCode)
             {
                 string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
-                using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
-                if (summaryJson.RootElement.TryGetProperty("output", out JsonElement outputEl))
-                    summaryText = outputEl.GetString() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(summaryBody))
+                {
+                    using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
+                    if (summaryJson.RootElement.TryGetProperty("output", out JsonElement outputEl))
+                        summaryText = outputEl.GetString() ?? string.Empty;
+                }
             }
-            // Gracefully continue even if summary is unavailable (step 3 is partially working per docs)
+            // Gracefully continue even if summary unavailable (step 3 is partially working per docs)
 
             // ── Step 3b: Confirm summary (GET) ────────────────────────
             if (!string.IsNullOrEmpty(summaryText))
@@ -155,7 +157,6 @@ namespace Escalyn.Api.Controllers
                     $"&user_confirm_summary=true";
 
                 await http.GetAsync(confirmUrl);
-                // Response is informational; don't fail the request if this times out
 
                 result.Summaries.Add(summaryText);
                 await _caseRepository.UpdateAsync(result);
@@ -189,15 +190,14 @@ namespace Escalyn.Api.Controllers
         {
             try
             {
-                bool isValidGuid = Guid.TryParse(id, out Guid caseId);
-                if (!isValidGuid)
+                if (!Guid.TryParse(id, out Guid caseId))
                     return Forbid();
 
                 Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
                 if (caseFromDb == null)
                     return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
 
-                CaseOutDTO caseOutDto = new CaseOutDTO
+                return Ok(new CaseOutDTO
                 {
                     CaseId = caseFromDb.Id,
                     Description = caseFromDb.Description,
@@ -205,9 +205,7 @@ namespace Escalyn.Api.Controllers
                     Subject = caseFromDb.Subject,
                     Language = caseFromDb.Language,
                     CreatedAt = caseFromDb.CreatedAt.ToString("O")
-                };
-
-                return Ok(caseOutDto);
+                });
             }
             catch
             {
@@ -223,8 +221,7 @@ namespace Escalyn.Api.Controllers
         {
             try
             {
-                bool isValidGuid = Guid.TryParse(id, out Guid caseId);
-                if (!isValidGuid)
+                if (!Guid.TryParse(id, out Guid caseId))
                     return Forbid();
 
                 Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
@@ -252,8 +249,7 @@ namespace Escalyn.Api.Controllers
         {
             try
             {
-                bool isValidGuid = Guid.TryParse(id, out Guid caseId);
-                if (!isValidGuid)
+                if (!Guid.TryParse(id, out Guid caseId))
                     return Forbid();
 
                 Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
@@ -275,8 +271,7 @@ namespace Escalyn.Api.Controllers
         [HttpGet("user/{userId}/cases")]
         public async Task<IActionResult> GetCasesByUserId(string userId)
         {
-            bool isValidGuid = Guid.TryParse(userId, out Guid userGuid);
-            if (!isValidGuid)
+            if (!Guid.TryParse(userId, out Guid userGuid))
                 return BadRequest(new { success = false, errorCode = "INVALID_GUID", message = "Invalid user ID format." });
 
             var cases = await _caseRepository.GetByUserIdAsync(userGuid);
