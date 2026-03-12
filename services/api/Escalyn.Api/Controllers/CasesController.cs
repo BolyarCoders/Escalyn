@@ -24,12 +24,8 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // POST api/cases
-        // Full flow — n8n expects POST with JSON body for every step:
-        //   1. Persist the case in DB
-        //   2. POST /webhook/inital-import   → may return clarifying questions
-        //   3. POST /webhook/additional-info → submit answers if questions returned
-        //   4. GET  /webhook/get-summary     → AI summary text
-        //   5. POST /webhook/confirm-summary → confirm summary
+        // n8n webhook trigger is configured as GET but reads the JSON body.
+        // We use HttpRequestMessage to send GET + JSON body for all n8n calls.
         // ─────────────────────────────────────────────────────────────
         [HttpPost]
         [ProducesResponseType(typeof(CaseOutDTO), StatusCodes.Status201Created)]
@@ -55,7 +51,7 @@ namespace Escalyn.Api.Controllers
             var http = _httpClientFactory.CreateClient();
             List<QuestionDTO> returnedQuestions = new();
 
-            // ── Step 1: Initial import (POST + JSON body) ─────────────
+            // ── Step 1: Initial import (GET + JSON body) ──────────────
             var initialPayload = new
             {
                 case_id = result.Id,
@@ -66,7 +62,7 @@ namespace Escalyn.Api.Controllers
                 date = result.CreatedAt.ToString("yyyy-MM-dd")
             };
 
-            HttpResponseMessage initialResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/inital-import", initialPayload);
+            HttpResponseMessage initialResponse = await SendGetWithBodyAsync(http, $"{N8nBaseUrl}/webhook/inital-import", initialPayload);
 
             if (!initialResponse.IsSuccessStatusCode)
             {
@@ -88,7 +84,7 @@ namespace Escalyn.Api.Controllers
                     ? typeEl.GetString() ?? "success"
                     : "success";
 
-                // ── Step 2: Additional info (POST + JSON body) ────────
+                // ── Step 2: Additional info (GET + JSON body) ─────────
                 if (responseType != "success")
                 {
                     if (root.TryGetProperty("data", out JsonElement dataEl) && dataEl.ValueKind == JsonValueKind.Array)
@@ -118,7 +114,7 @@ namespace Escalyn.Api.Controllers
                         })
                     };
 
-                    HttpResponseMessage additionalResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/additional-info", answersPayload);
+                    HttpResponseMessage additionalResponse = await SendGetWithBodyAsync(http, $"{N8nBaseUrl}/webhook/additional-info", answersPayload);
 
                     if (!additionalResponse.IsSuccessStatusCode)
                     {
@@ -132,10 +128,12 @@ namespace Escalyn.Api.Controllers
                 }
             }
 
-            // ── Step 3a: Get summary (GET with query param) ───────────
+            // ── Step 3a: Get summary (GET + JSON body) ────────────────
             string summaryText = string.Empty;
-            HttpResponseMessage summaryResponse = await http.GetAsync(
-                $"{N8nBaseUrl}/webhook/get-summary?caseId={result.Id}");
+            HttpResponseMessage summaryResponse = await SendGetWithBodyAsync(http, $"{N8nBaseUrl}/webhook/get-summary", new
+            {
+                case_id = result.Id
+            });
 
             if (summaryResponse.IsSuccessStatusCode)
             {
@@ -149,16 +147,14 @@ namespace Escalyn.Api.Controllers
             }
             // Gracefully continue even if summary unavailable (step 3 is partially working per docs)
 
-            // ── Step 3b: Confirm summary (POST + JSON body) ───────────
+            // ── Step 3b: Confirm summary (GET + JSON body) ────────────
             if (!string.IsNullOrEmpty(summaryText))
             {
-                var confirmPayload = new
+                await SendGetWithBodyAsync(http, $"{N8nBaseUrl}/webhook/confirm-summary", new
                 {
                     case_id = result.Id,
                     user_confirm_summary = true
-                };
-
-                await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/confirm-summary", confirmPayload);
+                });
 
                 result.Summaries.Add(summaryText);
                 await _caseRepository.UpdateAsync(result);
@@ -294,11 +290,19 @@ namespace Escalyn.Api.Controllers
         // ─────────────────────────────────────────────────────────────
         // Helpers
         // ─────────────────────────────────────────────────────────────
-        private static async Task<HttpResponseMessage> PostJsonAsync(HttpClient http, string url, object payload)
+
+        /// <summary>
+        /// Sends a GET request with a JSON body.
+        /// HttpClient.GetAsync() does not support a body, so we use HttpRequestMessage directly.
+        /// n8n webhook trigger nodes configured as GET still read from the request body.
+        /// </summary>
+        private static async Task<HttpResponseMessage> SendGetWithBodyAsync(HttpClient http, string url, object payload)
         {
-            string json = JsonSerializer.Serialize(payload);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            return await http.PostAsync(url, content);
+            var request = new HttpRequestMessage(HttpMethod.Get, url)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
+            };
+            return await http.SendAsync(request);
         }
     }
 }
