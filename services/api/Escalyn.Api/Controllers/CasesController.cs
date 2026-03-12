@@ -5,6 +5,9 @@ using Escalyn.Api.Data.Repositories.IRepositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Escalyn.Api.Controllers
@@ -14,27 +17,192 @@ namespace Escalyn.Api.Controllers
     public class CasesController : ControllerBase
     {
         private readonly ICaseRepository _caseRepository;
-        public CasesController(ICaseRepository caseRepository)
+        private readonly IHttpClientFactory _httpClientFactory;
+
+        private const string N8nBaseUrl = "https://n8n-production-8af3.up.railway.app";
+
+        public CasesController(ICaseRepository caseRepository, IHttpClientFactory httpClientFactory)
         {
             _caseRepository = caseRepository;
+            _httpClientFactory = httpClientFactory;
         }
 
+        // ─────────────────────────────────────────────────────────────
+        // POST api/cases
+        // Full flow:
+        //   1. Persist the case in the DB
+        //   2. POST /webhook/initial-import  → may return clarifying questions
+        //   3. If questions returned, POST /webhook/additional-info with answers
+        //   4. GET  /webhook/get-summary     → AI summary text
+        //   5. POST /webhook/confirm-summary → confirm automatically (backend-driven)
+        // ─────────────────────────────────────────────────────────────
+        [HttpPost]
+        [ProducesResponseType(typeof(CaseOutDTO), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status502BadGateway)]
+        public async Task<IActionResult> CreateCase([FromBody] CaseCreateDTO dto)
+        {
+            // ── Step 0: Persist case ──────────────────────────────────
+            Case toAdd = new Case()
+            {
+                UserId = dto.UserId,
+                Description = dto.Description,
+                Company = dto.Company,
+                CompanyEmail = dto.CompanyEmail,
+                Subject = dto.Subject,
+                Language = dto.Language,
+                Status = dto.Status,
+                Summaries = new List<string>(),
+                Questions = new List<QuestionBody>()
+            };
+
+            Case result = await _caseRepository.CreateAsync(toAdd);
+
+            var http = _httpClientFactory.CreateClient();
+
+            // ── Step 1: Initial import ────────────────────────────────
+            var initialPayload = new
+            {
+                case_id = result.Id,
+                subject = result.Subject,
+                language = result.Language,
+                message = result.Description,
+                company = result.Company,
+                date = result.CreatedAt.ToString("yyyy-MM-dd")
+            };
+
+            HttpResponseMessage initialResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/initial-import", initialPayload);
+
+            if (!initialResponse.IsSuccessStatusCode)
+            {
+                return StatusCode(StatusCodes.Status502BadGateway, new
+                {
+                    success = false,
+                    errorCode = "N8N_INITIAL_IMPORT_FAILED",
+                    message = "Failed to reach the automation service (initial-import)."
+                });
+            }
+
+            string initialBody = await initialResponse.Content.ReadAsStringAsync();
+            using JsonDocument initialJson = JsonDocument.Parse(initialBody);
+            JsonElement root = initialJson.RootElement;
+
+            string responseType = root.TryGetProperty("type", out JsonElement typeEl) ? typeEl.GetString() ?? "" : "";
+            List<QuestionDTO> returnedQuestions = new();
+
+            // If AI returned questions, check if caller supplied answers
+            if (responseType != "success")
+            {
+                // Parse questions from response data array
+                if (root.TryGetProperty("data", out JsonElement dataEl) && dataEl.ValueKind == JsonValueKind.Array)
+                {
+                    int idx = 0;
+                    foreach (JsonElement q in dataEl.EnumerateArray())
+                    {
+                        returnedQuestions.Add(new QuestionDTO
+                        {
+                            Question = q.GetString() ?? $"Question {idx + 1}",
+                            Answer = dto.Answers != null && idx < dto.Answers.Count
+                                           ? dto.Answers[idx]
+                                           : string.Empty
+                        });
+                        idx++;
+                    }
+                }
+
+                // ── Step 2: Additional info ───────────────────────────
+                var answersPayload = new
+                {
+                    case_id = result.Id,
+                    answers = returnedQuestions.Select((q, i) => new
+                    {
+                        id = i + 1,
+                        question = q.Question,
+                        answer = q.Answer
+                    })
+                };
+
+                HttpResponseMessage additionalResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/additional-info", answersPayload);
+
+                if (!additionalResponse.IsSuccessStatusCode)
+                {
+                    return StatusCode(StatusCodes.Status502BadGateway, new
+                    {
+                        success = false,
+                        errorCode = "N8N_ADDITIONAL_INFO_FAILED",
+                        message = "Failed to reach the automation service (additional-info)."
+                    });
+                }
+            }
+
+            // ── Step 3a: Get summary ──────────────────────────────────
+            HttpResponseMessage summaryResponse = await http.GetAsync($"{N8nBaseUrl}/webhook/get-summary?caseId={result.Id}");
+
+            string summaryText = string.Empty;
+            if (summaryResponse.IsSuccessStatusCode)
+            {
+                string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
+                using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
+                if (summaryJson.RootElement.TryGetProperty("output", out JsonElement outputEl))
+                {
+                    summaryText = outputEl.GetString() ?? string.Empty;
+                }
+            }
+            // Gracefully continue even if summary is unavailable (partial working per docs)
+
+            // ── Step 3b: Confirm summary ──────────────────────────────
+            if (!string.IsNullOrEmpty(summaryText))
+            {
+                var confirmPayload = new
+                {
+                    case_id = result.Id,
+                    user_confirm_summary = true
+                };
+
+                await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/confirm-summary", confirmPayload);
+                // Response is informational; don't fail the request if this times out
+
+                // Persist the summary locally
+                result.Summaries.Add(summaryText);
+                await _caseRepository.UpdateAsync(result);
+            }
+
+            // ── Respond ───────────────────────────────────────────────
+            var outDto = new CaseOutDTO
+            {
+                CaseId = result.Id,
+                Description = result.Description,
+                Company = result.Company,
+                Subject = result.Subject,
+                Language = result.Language,
+                CreatedAt = result.CreatedAt.ToString("O")
+            };
+
+            return CreatedAtAction(nameof(GetCaseById), new { id = result.Id }, new
+            {
+                success = true,
+                data = outDto,
+                questions = returnedQuestions.Count > 0 ? returnedQuestions : null,
+                summary = string.IsNullOrEmpty(summaryText) ? null : summaryText
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // GET api/cases/cases/{id}
+        // ─────────────────────────────────────────────────────────────
         [HttpGet("cases/{id}")]
         public async Task<ActionResult<CaseOutDTO>> GetCaseById(string id)
         {
-
             try
             {
                 bool isValidGuid = Guid.TryParse(id, out Guid caseId);
                 if (!isValidGuid)
-                {
                     return Forbid();
-                }
+
                 Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
                 if (caseFromDb == null)
-                {
                     return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
-                }
+
                 CaseOutDTO caseOutDto = new CaseOutDTO
                 {
                     CaseId = caseFromDb.Id,
@@ -44,8 +212,8 @@ namespace Escalyn.Api.Controllers
                     Language = caseFromDb.Language,
                     CreatedAt = caseFromDb.CreatedAt.ToString("O")
                 };
-                return Ok(caseOutDto);
 
+                return Ok(caseOutDto);
             }
             catch
             {
@@ -53,6 +221,9 @@ namespace Escalyn.Api.Controllers
             }
         }
 
+        // ─────────────────────────────────────────────────────────────
+        // PUT api/cases/cases/{id}/status
+        // ─────────────────────────────────────────────────────────────
         [HttpPut("cases/{id}/status")]
         public async Task<IActionResult> UpdateCaseStatus(string id, [FromBody] CaseStatusUpdateDTO request)
         {
@@ -60,65 +231,41 @@ namespace Escalyn.Api.Controllers
             {
                 bool isValidGuid = Guid.TryParse(id, out Guid caseId);
                 if (!isValidGuid)
-                {
                     return Forbid();
-                }
-                Case? caseFromDb = await _caseRepository.GetByIdAsync(Guid.Parse(id));
+
+                Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
                 if (caseFromDb == null)
-                {
                     return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
-                }
+
                 caseFromDb.Status = request.Status;
                 caseFromDb.CompanyEmail = request.CompanyEmail;
                 caseFromDb.Summaries.Add(request.Summary);
                 await _caseRepository.UpdateAsync(caseFromDb);
+
                 return Ok(caseFromDb);
             }
             catch
             {
                 return Forbid();
             }
-
         }
 
-        [HttpPost]
-        [ProducesResponseType(typeof(Case), StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> CreateCase([FromBody] CaseCreateDTO dto)
-        {
-
-            Case toAdd = new Case()
-            {
-                UserId = dto.UserId,
-                Description = dto.Description,
-                Company = dto.Company,
-                CompanyEmail = dto.CompanyEmail,
-                Subject = dto.Subject,
-                Language = dto.Language,
-                Status = dto.Status, //testovo
-                Summaries = new List<string>(),
-                Questions = new List<QuestionBody>()
-            };
-
-            var result = await _caseRepository.CreateAsync(toAdd);
-            return CreatedAtAction(nameof(GetCaseById), new { id = result.Id }, result);
-        }
-
+        // ─────────────────────────────────────────────────────────────
+        // DELETE api/cases/{id}  (was missing [HttpDelete] attribute)
+        // ─────────────────────────────────────────────────────────────
+        [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCase(string id)
         {
             try
             {
                 bool isValidGuid = Guid.TryParse(id, out Guid caseId);
                 if (!isValidGuid)
-                {
                     return Forbid();
-                }
-                Case? caseFromDb = await _caseRepository.GetByIdAsync(Guid.Parse(id));
+
+                Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
                 if (caseFromDb == null)
-                {
                     return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
-                }
+
                 await _caseRepository.DeleteAsync(caseId);
                 return NoContent();
             }
@@ -128,6 +275,9 @@ namespace Escalyn.Api.Controllers
             }
         }
 
+        // ─────────────────────────────────────────────────────────────
+        // GET api/cases/user/{userId}/cases
+        // ─────────────────────────────────────────────────────────────
         [HttpGet("user/{userId}/cases")]
         public async Task<IActionResult> GetCasesByUserId(string userId)
         {
@@ -148,6 +298,16 @@ namespace Escalyn.Api.Controllers
             }).ToList();
 
             return Ok(new { success = true, data = caseDtos });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Helpers
+        // ─────────────────────────────────────────────────────────────
+        private static async Task<HttpResponseMessage> PostJsonAsync(HttpClient http, string url, object payload)
+        {
+            string json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            return await http.PostAsync(url, content);
         }
     }
 }
