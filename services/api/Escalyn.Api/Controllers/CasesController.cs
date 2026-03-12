@@ -1,8 +1,8 @@
 ﻿using Escalyn.Api.Data.Models;
 using Escalyn.Api.Data.Models.DTOs;
-using Escalyn.Api.Data.Repositories;
 using Escalyn.Api.Data.Repositories.IRepositories;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
 using System.Text.Json;
 
 namespace Escalyn.Api.Controllers
@@ -24,12 +24,12 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // POST api/cases
-        // Full flow (all n8n calls are GET per API docs):
+        // Full flow — n8n expects POST with JSON body for every step:
         //   1. Persist the case in DB
-        //   2. GET /webhook/inital-import   → may return clarifying questions
-        //   3. GET /webhook/additional-info → submit answers if questions returned
-        //   4. GET /webhook/get-summary     → AI summary text
-        //   5. GET /webhook/confirm-summary → confirm summary
+        //   2. POST /webhook/inital-import   → may return clarifying questions
+        //   3. POST /webhook/additional-info → submit answers if questions returned
+        //   4. GET  /webhook/get-summary     → AI summary text
+        //   5. POST /webhook/confirm-summary → confirm summary
         // ─────────────────────────────────────────────────────────────
         [HttpPost]
         [ProducesResponseType(typeof(CaseOutDTO), StatusCodes.Status201Created)]
@@ -55,16 +55,18 @@ namespace Escalyn.Api.Controllers
             var http = _httpClientFactory.CreateClient();
             List<QuestionDTO> returnedQuestions = new();
 
-            // ── Step 1: Initial import (GET) ──────────────────────────
-            string initialUrl = $"{N8nBaseUrl}/webhook/inital-import" +
-                $"?case_id={result.Id}" +
-                $"&subject={Uri.EscapeDataString(result.Subject)}" +
-                $"&language={Uri.EscapeDataString(result.Language)}" +
-                $"&message={Uri.EscapeDataString(result.Description)}" +
-                $"&company={Uri.EscapeDataString(result.Company)}" +
-                $"&date={result.CreatedAt:yyyy-MM-dd}";
+            // ── Step 1: Initial import (POST + JSON body) ─────────────
+            var initialPayload = new
+            {
+                case_id = result.Id,
+                subject = result.Subject,
+                language = result.Language,
+                message = result.Description,
+                company = result.Company,
+                date = result.CreatedAt.ToString("yyyy-MM-dd")
+            };
 
-            HttpResponseMessage initialResponse = await http.GetAsync(initialUrl);
+            HttpResponseMessage initialResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/inital-import", initialPayload);
 
             if (!initialResponse.IsSuccessStatusCode)
             {
@@ -86,7 +88,7 @@ namespace Escalyn.Api.Controllers
                     ? typeEl.GetString() ?? "success"
                     : "success";
 
-                // ── Step 2: Additional info (GET) — only if AI returned questions
+                // ── Step 2: Additional info (POST + JSON body) ────────
                 if (responseType != "success")
                 {
                     if (root.TryGetProperty("data", out JsonElement dataEl) && dataEl.ValueKind == JsonValueKind.Array)
@@ -105,20 +107,18 @@ namespace Escalyn.Api.Controllers
                         }
                     }
 
-                    string answersJson = Uri.EscapeDataString(JsonSerializer.Serialize(
-                        returnedQuestions.Select((q, i) => new
+                    var answersPayload = new
+                    {
+                        case_id = result.Id,
+                        answers = returnedQuestions.Select((q, i) => new
                         {
                             id = i + 1,
                             question = q.Question,
                             answer = q.Answer
                         })
-                    ));
+                    };
 
-                    string additionalUrl = $"{N8nBaseUrl}/webhook/additional-info" +
-                        $"?case_id={result.Id}" +
-                        $"&answers={answersJson}";
-
-                    HttpResponseMessage additionalResponse = await http.GetAsync(additionalUrl);
+                    HttpResponseMessage additionalResponse = await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/additional-info", answersPayload);
 
                     if (!additionalResponse.IsSuccessStatusCode)
                     {
@@ -132,7 +132,7 @@ namespace Escalyn.Api.Controllers
                 }
             }
 
-            // ── Step 3a: Get summary (GET) ────────────────────────────
+            // ── Step 3a: Get summary (GET with query param) ───────────
             string summaryText = string.Empty;
             HttpResponseMessage summaryResponse = await http.GetAsync(
                 $"{N8nBaseUrl}/webhook/get-summary?caseId={result.Id}");
@@ -149,14 +149,16 @@ namespace Escalyn.Api.Controllers
             }
             // Gracefully continue even if summary unavailable (step 3 is partially working per docs)
 
-            // ── Step 3b: Confirm summary (GET) ────────────────────────
+            // ── Step 3b: Confirm summary (POST + JSON body) ───────────
             if (!string.IsNullOrEmpty(summaryText))
             {
-                string confirmUrl = $"{N8nBaseUrl}/webhook/confirm-summary" +
-                    $"?case_id={result.Id}" +
-                    $"&user_confirm_summary=true";
+                var confirmPayload = new
+                {
+                    case_id = result.Id,
+                    user_confirm_summary = true
+                };
 
-                await http.GetAsync(confirmUrl);
+                await PostJsonAsync(http, $"{N8nBaseUrl}/webhook/confirm-summary", confirmPayload);
 
                 result.Summaries.Add(summaryText);
                 await _caseRepository.UpdateAsync(result);
@@ -287,6 +289,16 @@ namespace Escalyn.Api.Controllers
             }).ToList();
 
             return Ok(new { success = true, data = caseDtos });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Helpers
+        // ─────────────────────────────────────────────────────────────
+        private static async Task<HttpResponseMessage> PostJsonAsync(HttpClient http, string url, object payload)
+        {
+            string json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            return await http.PostAsync(url, content);
         }
     }
 }
