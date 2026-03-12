@@ -141,7 +141,14 @@ namespace Escalyn.Api.Controllers
                 if (!string.IsNullOrWhiteSpace(summaryBody))
                 {
                     using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
-                    if (summaryJson.RootElement.TryGetProperty("output", out JsonElement outputEl))
+                    JsonElement summaryRoot = summaryJson.RootElement;
+
+                    // n8n may return an array [ { "output": "..." } ] or an object { "output": "..." }
+                    JsonElement summaryObj = summaryRoot.ValueKind == JsonValueKind.Array
+                        ? summaryRoot[0]
+                        : summaryRoot;
+
+                    if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
                         summaryText = outputEl.GetString() ?? string.Empty;
                 }
             }
