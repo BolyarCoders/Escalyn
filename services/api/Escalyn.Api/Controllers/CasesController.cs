@@ -13,17 +13,20 @@ namespace Escalyn.Api.Controllers
         private readonly ICaseRepository _caseRepository;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<CasesController> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
         private const string N8nBaseUrl = "https://n8n-production-8af3.up.railway.app";
 
         public CasesController(
             ICaseRepository caseRepository,
             IHttpClientFactory httpClientFactory,
-            ILogger<CasesController> logger)
+            ILogger<CasesController> logger,
+            IServiceScopeFactory scopeFactory)
         {
             _caseRepository = caseRepository;
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _scopeFactory = scopeFactory;
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -52,9 +55,20 @@ namespace Escalyn.Api.Controllers
 
             Case result = await _caseRepository.CreateAsync(toAdd);
 
+            // Capture values needed in background (avoid closing over `result` EF entity)
+            var caseId = result.Id;
+            var subject = result.Subject;
+            var language = result.Language;
+            var description = result.Description;
+            var company = result.Company;
+            var createdAt = result.CreatedAt;
+            var answers = dto.Answers;
+
             // ── Fire and forget — n8n runs in background ──────────────
             _ = Task.Run(async () =>
             {
+                using var scope = _scopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
                 using var http = _httpClientFactory.CreateClient();
                 http.Timeout = TimeSpan.FromSeconds(60);
 
@@ -63,12 +77,12 @@ namespace Escalyn.Api.Controllers
                     // ── Step 1: Initial import ────────────────────────
                     var initialPayload = new
                     {
-                        case_id = result.Id,
-                        subject = result.Subject,
-                        language = result.Language,
-                        message = result.Description,
-                        company = result.Company,
-                        date = result.CreatedAt.ToString("yyyy-MM-dd")
+                        case_id = caseId,
+                        subject = subject,
+                        language = language,
+                        message = description,
+                        company = company,
+                        date = createdAt.ToString("yyyy-MM-dd")
                     };
 
                     var initialResponse = await http.PostAsJsonAsync(
@@ -78,7 +92,7 @@ namespace Escalyn.Api.Controllers
 
                     if (!initialResponse.IsSuccessStatusCode)
                     {
-                        await SetCaseStatus(result.Id, "error_initial_import");
+                        await SetCaseStatus(caseId, "error_initial_import");
                         return;
                     }
 
@@ -107,8 +121,8 @@ namespace Escalyn.Api.Controllers
                                     returnedQuestions.Add(new QuestionDTO
                                     {
                                         Question = q.GetString() ?? $"Question {idx + 1}",
-                                        Answer = dto.Answers != null && idx < dto.Answers.Count
-                                            ? dto.Answers[idx]
+                                        Answer = answers != null && idx < answers.Count
+                                            ? answers[idx]
                                             : string.Empty
                                     });
                                     idx++;
@@ -117,7 +131,7 @@ namespace Escalyn.Api.Controllers
 
                             var answersPayload = new
                             {
-                                case_id = result.Id,
+                                case_id = caseId,
                                 answers = returnedQuestions.Select((q, i) => new
                                 {
                                     id = i + 1,
@@ -133,7 +147,7 @@ namespace Escalyn.Api.Controllers
 
                             if (!additionalResponse.IsSuccessStatusCode)
                             {
-                                await SetCaseStatus(result.Id, "error_additional_info");
+                                await SetCaseStatus(caseId, "error_additional_info");
                                 return;
                             }
                         }
@@ -144,7 +158,7 @@ namespace Escalyn.Api.Controllers
 
                     var summaryResponse = await http.PostAsJsonAsync(
                         $"{N8nBaseUrl}/webhook/get-summary",
-                        new { case_id = result.Id }
+                        new { case_id = caseId }
                     );
 
                     if (summaryResponse.IsSuccessStatusCode)
@@ -164,27 +178,31 @@ namespace Escalyn.Api.Controllers
                         }
                     }
 
-                    // ── Store summary, wait for user to confirm via separate endpoint ──
+                    // ── Step 3b: Store summary, await user confirmation ──
                     if (!string.IsNullOrEmpty(summaryText))
                     {
-                        result.Summaries.Add(summaryText);
-                        result.Status = "awaiting_confirmation";
-                        await _caseRepository.UpdateAsync(result);
+                        Case? c = await repo.GetByIdAsync(caseId);
+                        if (c != null)
+                        {
+                            c.Summaries.Add(summaryText);
+                            c.Status = "awaiting_confirmation";
+                            await repo.UpdateAsync(c);
+                        }
                     }
                     else
                     {
-                        await SetCaseStatus(result.Id, "error_summary");
+                        await SetCaseStatus(caseId, "error_summary");
                     }
                 }
                 catch (TaskCanceledException)
                 {
-                    _logger.LogError("n8n flow timed out for case {CaseId}", result.Id);
-                    await SetCaseStatus(result.Id, "error_timeout");
+                    _logger.LogError("n8n flow timed out for case {CaseId}", caseId);
+                    await SetCaseStatus(caseId, "error_timeout");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Background n8n flow failed for case {CaseId}", result.Id);
-                    await SetCaseStatus(result.Id, "error_unknown");
+                    _logger.LogError(ex, "Background n8n flow failed for case {CaseId}", caseId);
+                    await SetCaseStatus(caseId, "error_unknown");
                 }
             });
 
@@ -205,66 +223,6 @@ namespace Escalyn.Api.Controllers
                 data = outDto
             });
         }
-
-        // ─────────────────────────────────────────────────────────────
-        // POST api/cases/{id}/confirm-summary
-        // User explicitly confirms the summary — triggers n8n Steps 4+
-        // ─────────────────────────────────────────────────────────────
-        //[HttpPost("{id}/confirm-summary")]
-        //[ProducesResponseType(StatusCodes.Status200OK)]
-        //[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        //[ProducesResponseType(StatusCodes.Status404NotFound)]
-        //public async Task<IActionResult> ConfirmSummary(Guid id, [FromBody] ConfirmSummaryDTO dto)
-        //{
-        //    Case? existingCase = await _caseRepository.GetByIdAsync(id);
-        //    if (existingCase == null)
-        //        return NotFound(new { success = false, message = "Case not found." });
-
-        //    // ── Auth check: verify case belongs to this user ──────────
-        //    if (existingCase.UserId != dto.UserId)
-        //        return Unauthorized(new { success = false, message = "Unauthorized." });
-
-        //    if (existingCase.Status != "awaiting_confirmation")
-        //        return BadRequest(new { success = false, message = "Case is not awaiting confirmation." });
-
-        //    // ── User rejected the summary ─────────────────────────────
-        //    if (!dto.Confirmed)
-        //    {
-        //        existingCase.Status = "summary_rejected";
-        //        await _caseRepository.UpdateAsync(existingCase);
-        //        return Ok(new { success = true, message = "Summary rejected." });
-        //    }
-
-        //    // ── User confirmed — trigger n8n Steps 4+ in background ───
-        //    existingCase.Status = "confirmed";
-        //    await _caseRepository.UpdateAsync(existingCase);
-
-        //    _ = Task.Run(async () =>
-        //    {
-        //        using var http = _httpClientFactory.CreateClient();
-        //        http.Timeout = TimeSpan.FromSeconds(60);
-
-        //        try
-        //        {
-        //            await http.PostAsJsonAsync(
-        //                $"{N8nBaseUrl}/webhook/confirm-summary",
-        //                new
-        //                {
-        //                    case_id = id,
-        //                    user_confirm_summary = true,
-        //                    accessToken = dto.AccessToken
-        //                }
-        //            );
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            _logger.LogError(ex, "Failed to confirm summary in n8n for case {CaseId}", id);
-        //            await SetCaseStatus(id, "error_confirmation");
-        //        }
-        //    });
-
-        //    return Ok(new { success = true, message = "Summary confirmed. Processing started." });
-        //}
 
         // ─────────────────────────────────────────────────────────────
         // GET api/cases/{id}/status
@@ -405,16 +363,20 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // Helper: safely update case status from background threads
+        // Always creates its own scope — safe to call from Task.Run
         // ─────────────────────────────────────────────────────────────
         private async Task SetCaseStatus(Guid caseId, string status)
         {
             try
             {
-                Case? c = await _caseRepository.GetByIdAsync(caseId);
+                using var scope = _scopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
+
+                Case? c = await repo.GetByIdAsync(caseId);
                 if (c != null)
                 {
                     c.Status = status;
-                    await _caseRepository.UpdateAsync(c);
+                    await repo.UpdateAsync(c);
                 }
             }
             catch (Exception ex)
