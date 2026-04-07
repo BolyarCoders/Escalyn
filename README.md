@@ -1,3 +1,5 @@
+![Banner image](https://github.com/BolyarCoders/Escalyn/blob/main/apps/mobile/assets/icons/logo.png)
+
 # Escalyn
 
 > **Stop arguing with chatbots. Let Escalyn handle the "law talk" for you.**
