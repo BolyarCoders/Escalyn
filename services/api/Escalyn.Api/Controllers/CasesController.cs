@@ -221,12 +221,12 @@ namespace Escalyn.Api.Controllers
         // ─────────────────────────────────────────────────────────────
         // PUT api/cases/cases/{id}/status
         // ─────────────────────────────────────────────────────────────
-        [HttpPut("cases/{id}/status")]
-        public async Task<IActionResult> UpdateCaseStatus(string id, [FromBody] CaseStatusUpdateDTO request)
+        [HttpPut("cases/status")]
+        public async Task<IActionResult> UpdateCaseStatus([FromBody] CaseStatusUpdateDTO request)
         {
             try
             {
-                if (!Guid.TryParse(id, out Guid caseId))
+                if (!Guid.TryParse(request.CaseId.ToString(), out Guid caseId))
                     return Forbid();
 
                 Case? caseFromDb = await _caseRepository.GetByIdAsync(caseId);
