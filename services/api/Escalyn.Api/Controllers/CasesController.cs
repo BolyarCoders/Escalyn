@@ -90,13 +90,20 @@ namespace Escalyn.Api.Controllers
                         initialPayload
                     );
 
+                    string initialBody = await initialResponse.Content.ReadAsStringAsync();
+                    _logger.LogInformation(
+                        "n8n initial-import → Status: {StatusCode}, Body: {Body}",
+                        (int)initialResponse.StatusCode,
+                        initialBody
+                    );
+
                     if (!initialResponse.IsSuccessStatusCode)
                     {
                         await SetCaseStatus(caseId, "error_initial_import");
                         return;
                     }
 
-                    string initialBody = await initialResponse.Content.ReadAsStringAsync();
+                    //string initialBody = await initialResponse.Content.ReadAsStringAsync();
                     string responseType = "success";
                     List<QuestionDTO> returnedQuestions = new();
 
