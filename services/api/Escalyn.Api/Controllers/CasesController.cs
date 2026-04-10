@@ -68,10 +68,10 @@ namespace Escalyn.Api.Controllers
             // ── Fire and forget — n8n runs in background ──────────────
             _ = Task.Run(async () =>
             {
-            using var scope = _scopeFactory.CreateScope();
-            var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
-            using var http = _httpClientFactory.CreateClient();
-            http.Timeout = TimeSpan.FromSeconds(60);
+                using var scope = _scopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
+                using var http = _httpClientFactory.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(60);
 
                 try
                 {
@@ -161,25 +161,19 @@ namespace Escalyn.Api.Controllers
                             Case? caseToUpdate = await repo.GetByIdAsync(caseId);
                             if (caseToUpdate != null)
                             {
-                                caseToUpdate.Questions = returnedQuestions.Select(q =>
+                                caseToUpdate.Questions = returnedQuestions.Select(q => new QuestionBody
                                 {
-                                    var bodyId = Guid.NewGuid(); // ✅ unique per QuestionBody
-                                    return new QuestionBody
+                                    // ✅ No Id set — EF generates it and knows to INSERT, not UPDATE
+                                    CaseId = caseId,
+                                    Questions = new List<Question>
                                     {
-                                        Id = bodyId,
-                                        CaseId = caseId,
-                                        // ❌ Don't set Case = caseToUpdate (navigation property causes tracking issues)
-                                        Questions = new List<Question>
-                                    {
-                                    new Question
-                                    {
-                                        QuestionAsStr = q.Question,
-                                        Answer = q.Answer,
-                                        QuestionsBodyId = bodyId  // ✅ matches its own parent
-                                        // ❌ Don't set QuestionsBody — EF resolves it from the FK
+                                         new Question
+                                         {
+                                            QuestionAsStr = q.Question,
+                                            Answer = q.Answer
+                                            // ✅ No QuestionsBodyId set — EF resolves from the object graph
+                                         }
                                     }
-                                        }               
-                                    };
                                 }).ToList();
 
                                 await repo.UpdateAsync(caseToUpdate);
