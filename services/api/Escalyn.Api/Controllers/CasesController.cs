@@ -68,10 +68,10 @@ namespace Escalyn.Api.Controllers
             // ── Fire and forget — n8n runs in background ──────────────
             _ = Task.Run(async () =>
             {
-                using var scope = _scopeFactory.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
-                using var http = _httpClientFactory.CreateClient();
-                http.Timeout = TimeSpan.FromSeconds(60);
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
+            using var http = _httpClientFactory.CreateClient();
+            http.Timeout = TimeSpan.FromSeconds(60);
 
                 try
                 {
@@ -158,51 +158,73 @@ namespace Escalyn.Api.Controllers
                                 await SetCaseStatus(caseId, "error_additional_info");
                                 return;
                             }
+                            Guid idTest = Guid.NewGuid();
+                            Case? caseToUpdate = await repo.GetByIdAsync(caseId);
+                            if (caseToUpdate != null)
+                            {
+                                caseToUpdate.Questions = returnedQuestions.Select(q => new QuestionBody
+                                {
+                                    Id = idTest,
+                                    CaseId = caseId,
+                                    Case = caseToUpdate,
+                                    Questions = new List<Question>
+                                    {
+                                        new Question
+                                        {
+                                            QuestionAsStr = q.Question,
+                                            Answer = q.Answer,
+                                            QuestionsBody = null!, // EF will set this automatically
+                                             QuestionsBodyId = idTest // EF will set this automatically
+                                        }
+                                    }
+                                }).ToList();
+                                await repo.UpdateAsync(caseToUpdate);
+                            }
                         }
-                    }
 
-                    // ── Step 3a: Get summary (GET + JSON body) ────────
-                    string summaryText = string.Empty;
+                        // ── Step 3a: Get summary (GET + JSON body) ────────
+                        string summaryText = string.Empty;
 
-                    var summaryResponse = await SendGetWithBodyAsync(http,
-                        $"{N8nBaseUrl}/webhook/get-summary",
-                        new { case_id = caseId });
+                        var summaryResponse = await SendGetWithBodyAsync(http,
+                            $"{N8nBaseUrl}/webhook/get-summary",
+                            new { case_id = caseId });
 
-                    _logger.LogInformation(
-                        "n8n get-summary → Status: {StatusCode}",
-                        (int)summaryResponse.StatusCode);
+                        _logger.LogInformation(
+                            "n8n get-summary → Status: {StatusCode}",
+                            (int)summaryResponse.StatusCode);
 
-                    if (summaryResponse.IsSuccessStatusCode)
-                    {
-                        string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
-                        if (!string.IsNullOrWhiteSpace(summaryBody))
+                        if (summaryResponse.IsSuccessStatusCode)
                         {
-                            using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
-                            JsonElement summaryRoot = summaryJson.RootElement;
+                            string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
+                            if (!string.IsNullOrWhiteSpace(summaryBody))
+                            {
+                                using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
+                                JsonElement summaryRoot = summaryJson.RootElement;
 
-                            JsonElement summaryObj = summaryRoot.ValueKind == JsonValueKind.Array
-                                ? summaryRoot[0]
-                                : summaryRoot;
+                                JsonElement summaryObj = summaryRoot.ValueKind == JsonValueKind.Array
+                                    ? summaryRoot[0]
+                                    : summaryRoot;
 
-                            if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
-                                summaryText = outputEl.GetString() ?? string.Empty;
+                                if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
+                                    summaryText = outputEl.GetString() ?? string.Empty;
+                            }
                         }
-                    }
 
-                    // ── Step 3b: Store summary, await user confirmation ──
-                    if (!string.IsNullOrEmpty(summaryText))
-                    {
-                        Case? c = await repo.GetByIdAsync(caseId);
-                        if (c != null)
+                        // ── Step 3b: Store summary, await user confirmation ──
+                        if (!string.IsNullOrEmpty(summaryText))
                         {
-                            c.Summaries.Add(summaryText);
-                            c.Status = "awaiting_confirmation";
-                            await repo.UpdateAsync(c);
+                            Case? c = await repo.GetByIdAsync(caseId);
+                            if (c != null)
+                            {
+                                c.Summaries.Add(summaryText);
+                                c.Status = "awaiting_confirmation";
+                                await repo.UpdateAsync(c);
+                            }
                         }
-                    }
-                    else
-                    {
-                        await SetCaseStatus(caseId, "error_summary");
+                        else
+                        {
+                            await SetCaseStatus(caseId, "error_summary");
+                        }
                     }
                 }
                 catch (TaskCanceledException)
