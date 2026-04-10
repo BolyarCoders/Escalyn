@@ -86,7 +86,7 @@ namespace Escalyn.Api.Controllers
                     };
 
                     var initialResponse = await http.PostAsJsonAsync(
-                        $"{N8nBaseUrl}/webhook/initial-import",
+                        $"{N8nBaseUrl}/webhook/inital-import",
                         initialPayload
                     );
 
