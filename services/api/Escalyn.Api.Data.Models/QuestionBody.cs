@@ -11,6 +11,8 @@ namespace Escalyn.Api.Data.Models
     public class QuestionBody
     {
         public Guid Id { get; set; }
+
+        [JsonIgnore]
         public Case Case { get; set; }
         public Guid CaseId { get; set; }
         public List<Question> Questions { get; set; }
