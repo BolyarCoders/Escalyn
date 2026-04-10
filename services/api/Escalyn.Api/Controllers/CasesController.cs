@@ -2,6 +2,7 @@
 using Escalyn.Api.Data.Models.DTOs;
 using Escalyn.Api.Data.Repositories.IRepositories;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
 using System.Text.Json;
 
 namespace Escalyn.Api.Controllers
@@ -55,7 +56,7 @@ namespace Escalyn.Api.Controllers
 
             Case result = await _caseRepository.CreateAsync(toAdd);
 
-            // Capture values needed in background (avoid closing over `result` EF entity)
+            // Capture primitives — avoid closing over EF entity after request ends
             var caseId = result.Id;
             var subject = result.Subject;
             var language = result.Language;
@@ -74,7 +75,7 @@ namespace Escalyn.Api.Controllers
 
                 try
                 {
-                    // ── Step 1: Initial import ────────────────────────
+                    // ── Step 1: Initial import (GET + JSON body) ──────
                     var initialPayload = new
                     {
                         case_id = caseId,
@@ -85,17 +86,15 @@ namespace Escalyn.Api.Controllers
                         date = createdAt.ToString("yyyy-MM-dd")
                     };
 
-                    var initialResponse = await http.PostAsJsonAsync(
+                    var initialResponse = await SendGetWithBodyAsync(http,
                         $"{N8nBaseUrl}/webhook/inital-import",
-                        initialPayload
-                    );
+                        initialPayload);
 
                     string initialBody = await initialResponse.Content.ReadAsStringAsync();
                     _logger.LogInformation(
                         "n8n initial-import → Status: {StatusCode}, Body: {Body}",
                         (int)initialResponse.StatusCode,
-                        initialBody
-                    );
+                        initialBody);
 
                     if (!initialResponse.IsSuccessStatusCode)
                     {
@@ -103,7 +102,6 @@ namespace Escalyn.Api.Controllers
                         return;
                     }
 
-                    //string initialBody = await initialResponse.Content.ReadAsStringAsync();
                     string responseType = "success";
                     List<QuestionDTO> returnedQuestions = new();
 
@@ -147,10 +145,13 @@ namespace Escalyn.Api.Controllers
                                 })
                             };
 
-                            var additionalResponse = await http.PostAsJsonAsync(
+                            var additionalResponse = await SendGetWithBodyAsync(http,
                                 $"{N8nBaseUrl}/webhook/additional-info",
-                                answersPayload
-                            );
+                                answersPayload);
+
+                            _logger.LogInformation(
+                                "n8n additional-info → Status: {StatusCode}",
+                                (int)additionalResponse.StatusCode);
 
                             if (!additionalResponse.IsSuccessStatusCode)
                             {
@@ -160,13 +161,16 @@ namespace Escalyn.Api.Controllers
                         }
                     }
 
-                    // ── Step 3a: Get summary ──────────────────────────
+                    // ── Step 3a: Get summary (GET + JSON body) ────────
                     string summaryText = string.Empty;
 
-                    var summaryResponse = await http.PostAsJsonAsync(
+                    var summaryResponse = await SendGetWithBodyAsync(http,
                         $"{N8nBaseUrl}/webhook/get-summary",
-                        new { case_id = caseId }
-                    );
+                        new { case_id = caseId });
+
+                    _logger.LogInformation(
+                        "n8n get-summary → Status: {StatusCode}",
+                        (int)summaryResponse.StatusCode);
 
                     if (summaryResponse.IsSuccessStatusCode)
                     {
@@ -366,6 +370,22 @@ namespace Escalyn.Api.Controllers
             }).ToList();
 
             return Ok(new { success = true, data = caseDtos });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Helper: GET request with JSON body
+        // n8n webhook nodes are configured as GET but read from the body
+        // ─────────────────────────────────────────────────────────────
+        private static async Task<HttpResponseMessage> SendGetWithBodyAsync(HttpClient http, string url, object payload)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, url)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(payload),
+                    Encoding.UTF8,
+                    "application/json")
+            };
+            return await http.SendAsync(request);
         }
 
         // ─────────────────────────────────────────────────────────────
