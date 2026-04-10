@@ -158,26 +158,30 @@ namespace Escalyn.Api.Controllers
                                 await SetCaseStatus(caseId, "error_additional_info");
                                 return;
                             }
-                            Guid idTest = Guid.NewGuid();
                             Case? caseToUpdate = await repo.GetByIdAsync(caseId);
                             if (caseToUpdate != null)
                             {
-                                caseToUpdate.Questions = returnedQuestions.Select(q => new QuestionBody
+                                caseToUpdate.Questions = returnedQuestions.Select(q =>
                                 {
-                                    Id = idTest,
-                                    CaseId = caseId,
-                                    Case = caseToUpdate,
-                                    Questions = new List<Question>
+                                    var bodyId = Guid.NewGuid(); // ✅ unique per QuestionBody
+                                    return new QuestionBody
                                     {
-                                        new Question
-                                        {
-                                            QuestionAsStr = q.Question,
-                                            Answer = q.Answer,
-                                            QuestionsBody = null!, // EF will set this automatically
-                                             QuestionsBodyId = idTest // EF will set this automatically
-                                        }
+                                        Id = bodyId,
+                                        CaseId = caseId,
+                                        // ❌ Don't set Case = caseToUpdate (navigation property causes tracking issues)
+                                        Questions = new List<Question>
+                                    {
+                                    new Question
+                                    {
+                                        QuestionAsStr = q.Question,
+                                        Answer = q.Answer,
+                                        QuestionsBodyId = bodyId  // ✅ matches its own parent
+                                        // ❌ Don't set QuestionsBody — EF resolves it from the FK
                                     }
+                                        }               
+                                    };
                                 }).ToList();
+
                                 await repo.UpdateAsync(caseToUpdate);
                             }
                         }
@@ -275,7 +279,8 @@ namespace Escalyn.Api.Controllers
                 {
                     caseId = existingCase.Id,
                     status = existingCase.Status,
-                    summary = existingCase.Summaries.LastOrDefault()
+                    summary = existingCase.Summaries.LastOrDefault(),
+                    questions = existingCase.Questions
                 }
             });
         }
