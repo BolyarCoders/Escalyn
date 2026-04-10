@@ -280,6 +280,122 @@ namespace Escalyn.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
+        // POST api/cases/{id}/confirm
+        // User submits answers → sent to n8n → summary returned
+        // ─────────────────────────────────────────────────────────────
+        [HttpPost("{id}/confirm")]
+        public async Task<IActionResult> ConfirmCase(Guid id, [FromBody] CaseConfirmDTO dto)
+        {
+            Case? existingCase = await _caseRepository.GetByIdAsync(id);
+            if (existingCase == null)
+                return NotFound(new { success = false, message = "Case not found." });
+
+            if (existingCase.Status != "awaiting_confirmation")
+                return BadRequest(new { success = false, message = "Case is not awaiting confirmation." });
+
+            // ── Fire and forget ───────────────────────────────────────
+            _ = Task.Run(async () =>
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
+                using var http = _httpClientFactory.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(60);
+
+                try
+                {
+                    // ── Step 1: Send answers to n8n ───────────────────
+                    var answersPayload = new
+                    {
+                        case_id = id,
+                        answers = dto.Answers.Select((a, i) => new
+                        {
+                            id = i + 1,
+                            question = a.Question,
+                            answer = a.Answer
+                        })
+                    };
+
+                    var additionalResponse = await SendGetWithBodyAsync(http,
+                        $"{N8nBaseUrl}/webhook/additional-info",
+                        answersPayload);
+
+                    if (!additionalResponse.IsSuccessStatusCode)
+                    {
+                        await SetCaseStatus(id, "error_additional_info");
+                        return;
+                    }
+
+                    // ── Step 2: Get summary ───────────────────────────
+                    var summaryResponse = await SendGetWithBodyAsync(http,
+                        $"{N8nBaseUrl}/webhook/get-summary",
+                        new { case_id = id });
+
+                    if (!summaryResponse.IsSuccessStatusCode)
+                    {
+                        await SetCaseStatus(id, "error_summary");
+                        return;
+                    }
+
+                    string summaryText = string.Empty;
+                    string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
+
+                    if (!string.IsNullOrWhiteSpace(summaryBody))
+                    {
+                        using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
+                        JsonElement summaryRoot = summaryJson.RootElement;
+
+                        JsonElement summaryObj = summaryRoot.ValueKind == JsonValueKind.Array
+                            ? summaryRoot[0]
+                            : summaryRoot;
+
+                        if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
+                            summaryText = outputEl.GetString() ?? string.Empty;
+                    }
+
+                    // ── Step 3: Persist summary + update answers ──────
+                    Case? c = await repo.GetByIdAsync(id);
+                    if (c != null)
+                    {
+                        // Update answers on existing questions
+                        foreach (var questionBody in c.Questions)
+                        {
+                            foreach (var question in questionBody.Questions)
+                            {
+                                var match = dto.Answers.FirstOrDefault(a => a.Question == question.QuestionAsStr);
+                                if (match != null)
+                                    question.Answer = match.Answer;
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(summaryText))
+                        {
+                            c.Summaries.Add(summaryText);
+                            c.Status = "awaiting_confirmation";
+                        }
+                        else
+                        {
+                            c.Status = "error_summary";
+                        }
+
+                        await repo.UpdateAsync(c);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogError("Confirm flow timed out for case {CaseId}", id);
+                    await SetCaseStatus(id, "error_timeout");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Confirm flow failed for case {CaseId}", id);
+                    await SetCaseStatus(id, "error_unknown");
+                }
+            });
+
+            return Accepted(new { success = true, message = "Answers submitted, processing..." });
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // GET api/cases/cases/{id}
         // ─────────────────────────────────────────────────────────────
         [HttpGet("cases/{id}")]
