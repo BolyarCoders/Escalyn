@@ -22,6 +22,7 @@ namespace Escalyn.Api.Data.Repositories
         {
             return await _context.Cases
                 .Include(c => c.Questions)
+                .ThenInclude(qb => qb.Questions)
                 .FirstOrDefaultAsync(c => c.Id == id);
         }
 

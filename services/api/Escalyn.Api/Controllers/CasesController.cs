@@ -75,7 +75,7 @@ namespace Escalyn.Api.Controllers
 
                 try
                 {
-                    // ── Step 1: Initial import (GET + JSON body) ──────
+                    // ── Step 1: Initial import ────────────────────────
                     var initialPayload = new
                     {
                         case_id = caseId,
@@ -158,71 +158,71 @@ namespace Escalyn.Api.Controllers
                                 await SetCaseStatus(caseId, "error_additional_info");
                                 return;
                             }
+
+                            // ── Save one QuestionBody with all questions ──
                             Case? caseToUpdate = await repo.GetByIdAsync(caseId);
                             if (caseToUpdate != null)
                             {
-                                caseToUpdate.Questions = returnedQuestions.Select(q => new QuestionBody
+                                caseToUpdate.Questions = new List<QuestionBody>
                                 {
-                                    // ✅ No Id set — EF generates it and knows to INSERT, not UPDATE
-                                    CaseId = caseId,
-                                    Questions = new List<Question>
+                                    new QuestionBody
                                     {
-                                         new Question
-                                         {
+                                        CaseId = caseId,
+                                        Questions = returnedQuestions.Select(q => new Question
+                                        {
                                             QuestionAsStr = q.Question,
                                             Answer = q.Answer
-                                            // ✅ No QuestionsBodyId set — EF resolves from the object graph
-                                         }
+                                        }).ToList()
                                     }
-                                }).ToList();
+                                };
 
                                 await repo.UpdateAsync(caseToUpdate);
                             }
                         }
+                    }
 
-                        // ── Step 3a: Get summary (GET + JSON body) ────────
-                        string summaryText = string.Empty;
+                    // ── Step 3a: Get summary ──────────────────────────
+                    string summaryText = string.Empty;
 
-                        var summaryResponse = await SendGetWithBodyAsync(http,
-                            $"{N8nBaseUrl}/webhook/get-summary",
-                            new { case_id = caseId });
+                    var summaryResponse = await SendGetWithBodyAsync(http,
+                        $"{N8nBaseUrl}/webhook/get-summary",
+                        new { case_id = caseId });
 
-                        _logger.LogInformation(
-                            "n8n get-summary → Status: {StatusCode}",
-                            (int)summaryResponse.StatusCode);
+                    _logger.LogInformation(
+                        "n8n get-summary → Status: {StatusCode}",
+                        (int)summaryResponse.StatusCode);
 
-                        if (summaryResponse.IsSuccessStatusCode)
+                    if (summaryResponse.IsSuccessStatusCode)
+                    {
+                        string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
+                        if (!string.IsNullOrWhiteSpace(summaryBody))
                         {
-                            string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
-                            if (!string.IsNullOrWhiteSpace(summaryBody))
-                            {
-                                using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
-                                JsonElement summaryRoot = summaryJson.RootElement;
+                            using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
+                            JsonElement summaryRoot = summaryJson.RootElement;
 
-                                JsonElement summaryObj = summaryRoot.ValueKind == JsonValueKind.Array
-                                    ? summaryRoot[0]
-                                    : summaryRoot;
+                            JsonElement summaryObj = summaryRoot.ValueKind == JsonValueKind.Array
+                                ? summaryRoot[0]
+                                : summaryRoot;
 
-                                if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
-                                    summaryText = outputEl.GetString() ?? string.Empty;
-                            }
+                            if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
+                                summaryText = outputEl.GetString() ?? string.Empty;
                         }
+                    }
 
-                        // ── Step 3b: Store summary, await user confirmation ──
-                        if (!string.IsNullOrEmpty(summaryText))
+                    // ── Step 3b: Store summary, await user confirmation ──
+                    if (!string.IsNullOrEmpty(summaryText))
+                    {
+                        Case? c = await repo.GetByIdAsync(caseId);
+                        if (c != null)
                         {
-                            Case? c = await repo.GetByIdAsync(caseId);
-                            if (c != null)
-                            {
-                                c.Summaries.Add(summaryText);
-                                c.Status = "awaiting_confirmation";
-                                await repo.UpdateAsync(c);
-                            }
+                            c.Summaries.Add(summaryText);
+                            c.Status = "awaiting_confirmation";
+                            await repo.UpdateAsync(c);
                         }
-                        else
-                        {
-                            await SetCaseStatus(caseId, "error_summary");
-                        }
+                    }
+                    else
+                    {
+                        await SetCaseStatus(caseId, "error_summary");
                     }
                 }
                 catch (TaskCanceledException)
@@ -266,6 +266,17 @@ namespace Escalyn.Api.Controllers
             if (existingCase == null)
                 return NotFound(new { success = false, message = "Case not found." });
 
+            // Flatten questions for clean response
+            var questions = existingCase.Questions
+                .SelectMany(qb => qb.Questions ?? new List<Question>())
+                .Select(q => new
+                {
+                    id = q.Id,
+                    question = q.QuestionAsStr,
+                    answer = q.Answer
+                })
+                .ToList();
+
             return Ok(new
             {
                 success = true,
@@ -274,7 +285,7 @@ namespace Escalyn.Api.Controllers
                     caseId = existingCase.Id,
                     status = existingCase.Status,
                     summary = existingCase.Summaries.LastOrDefault(),
-                    questions = existingCase.Questions
+                    questions
                 }
             });
         }
@@ -293,7 +304,6 @@ namespace Escalyn.Api.Controllers
             if (existingCase.Status != "awaiting_confirmation")
                 return BadRequest(new { success = false, message = "Case is not awaiting confirmation." });
 
-            // ── Fire and forget ───────────────────────────────────────
             _ = Task.Run(async () =>
             {
                 using var scope = _scopeFactory.CreateScope();
@@ -359,7 +369,7 @@ namespace Escalyn.Api.Controllers
                         // Update answers on existing questions
                         foreach (var questionBody in c.Questions)
                         {
-                            foreach (var question in questionBody.Questions)
+                            foreach (var question in questionBody.Questions ?? new List<Question>())
                             {
                                 var match = dto.Answers.FirstOrDefault(a => a.Question == question.QuestionAsStr);
                                 if (match != null)
@@ -367,15 +377,8 @@ namespace Escalyn.Api.Controllers
                             }
                         }
 
-                        if (!string.IsNullOrEmpty(summaryText))
-                        {
-                            c.Summaries.Add(summaryText);
-                            c.Status = "awaiting_confirmation";
-                        }
-                        else
-                        {
-                            c.Status = "error_summary";
-                        }
+                        c.Summaries.Add(!string.IsNullOrEmpty(summaryText) ? summaryText : "error_summary");
+                        c.Status = !string.IsNullOrEmpty(summaryText) ? "awaiting_confirmation" : "error_summary";
 
                         await repo.UpdateAsync(c);
                     }
@@ -511,7 +514,6 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // Helper: GET request with JSON body
-        // n8n webhook nodes are configured as GET but read from the body
         // ─────────────────────────────────────────────────────────────
         private static async Task<HttpResponseMessage> SendGetWithBodyAsync(HttpClient http, string url, object payload)
         {
@@ -527,7 +529,6 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // Helper: safely update case status from background threads
-        // Always creates its own scope — safe to call from Task.Run
         // ─────────────────────────────────────────────────────────────
         private async Task SetCaseStatus(Guid caseId, string status)
         {
