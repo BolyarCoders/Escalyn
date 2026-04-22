@@ -276,7 +276,7 @@ namespace Escalyn.Api.Controllers
                     answer = q.Answer
                 })
                 .ToList();
-
+     
             return Ok(new
             {
                 success = true,
@@ -548,6 +548,113 @@ namespace Escalyn.Api.Controllers
             {
                 _logger.LogError(ex, "Failed to update status for case {CaseId} to {Status}", caseId, status);
             }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // GET api/cases/{id}/summary
+        // Returns the latest summary for the case
+        // ─────────────────────────────────────────────────────────────
+        [HttpGet("{id}/summary")]
+        public async Task<IActionResult> GetSummary(Guid id)
+        {
+            Case? existingCase = await _caseRepository.GetByIdAsync(id);
+            if (existingCase == null)
+                return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
+
+            if (existingCase.Status != "awaiting_confirmation")
+                return BadRequest(new
+                {
+                    success = false,
+                    errorCode = "SUMMARY_NOT_READY",
+                    message = $"Case is not awaiting confirmation. Current status: {existingCase.Status}"
+                });
+
+            var summary = existingCase.Summaries.LastOrDefault();
+            if (string.IsNullOrEmpty(summary))
+                return NotFound(new { success = false, errorCode = "SUMMARY_NOT_FOUND", message = "No summary available yet." });
+
+            return Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    caseId = existingCase.Id,
+                    status = existingCase.Status,
+                    summary = summary
+                }
+            });
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // POST api/cases/{id}/confirm-summary
+        // User confirms or rejects the summary
+        // ─────────────────────────────────────────────────────────────
+        [HttpPost("{id}/confirm-summary")]
+        public async Task<IActionResult> ConfirmSummary(Guid id, [FromBody] ConfirmSummaryDTO dto)
+        {
+            Case? existingCase = await _caseRepository.GetByIdAsync(id);
+            if (existingCase == null)
+                return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
+
+            if (existingCase.Status != "awaiting_confirmation")
+                return BadRequest(new
+                {
+                    success = false,
+                    errorCode = "INVALID_STATUS",
+                    message = $"Case is not awaiting confirmation. Current status: {existingCase.Status}"
+                });
+
+            // ── User rejected the summary ─────────────────────────────
+            if (!dto.Confirmed)
+            {
+                existingCase.Status = "summary_rejected";
+                await _caseRepository.UpdateAsync(existingCase);
+                return Ok(new { success = true, message = "Summary rejected." });
+            }
+
+            // ── User confirmed — update status then forward to n8n ────
+            existingCase.Status = "confirmed";
+            await _caseRepository.UpdateAsync(existingCase);
+
+            var caseId = existingCase.Id;
+
+            _ = Task.Run(async () =>
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
+                using var http = _httpClientFactory.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(60);
+
+                try
+                {
+                    var confirmPayload = new
+                    {
+                        case_id = caseId,
+                        user_confirm_summary = true
+                    };
+
+                    var response = await SendGetWithBodyAsync(http,
+                        $"{N8nBaseUrl}/webhook/confirm-summary",
+                        confirmPayload);
+
+                    string body = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation(
+                        "n8n confirm-summary → Status: {StatusCode}, Body: {Body}",
+                        (int)response.StatusCode, body);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        await SetCaseStatus(caseId, "error_confirmation");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to confirm summary in n8n for case {CaseId}", caseId);
+                    await SetCaseStatus(caseId, "error_confirmation");
+                }
+            });
+
+            return Ok(new { success = true, message = "Summary confirmed. Processing started." });
         }
     }
 }
