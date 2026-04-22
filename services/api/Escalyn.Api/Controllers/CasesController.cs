@@ -657,7 +657,8 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // POST api/cases/{id}/confirm-summary
-        // User confirms or rejects the summary
+        // User confirms or rejects the summary, forwards to n8n and
+        // waits for the response
         // ─────────────────────────────────────────────────────────────
         [HttpPost("{id}/confirm-summary")]
         public async Task<IActionResult> ConfirmSummary(Guid id, [FromBody] ConfirmSummaryDTO dto)
@@ -682,49 +683,98 @@ namespace Escalyn.Api.Controllers
                 return Ok(new { success = true, message = "Summary rejected." });
             }
 
-            // ── User confirmed — update status then forward to n8n ────
-            existingCase.Status = "confirmed";
-            await _caseRepository.UpdateAsync(existingCase);
-
-            var caseId = existingCase.Id;
-
-            _ = Task.Run(async () =>
+            // ── User confirmed — forward to n8n and wait ──────────────
+            try
             {
-                using var scope = _scopeFactory.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
                 using var http = _httpClientFactory.CreateClient();
                 http.Timeout = TimeSpan.FromSeconds(60);
 
-                try
+                var confirmPayload = new
                 {
-                    var confirmPayload = new
+                    case_id = id,
+                    user_confirm_summary = true
+                };
+
+                var response = await SendGetWithBodyAsync(http,
+                    $"{N8nBaseUrl}/webhook/confirm-summary",
+                    confirmPayload);
+
+                string body = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation(
+                    "n8n confirm-summary → Status: {StatusCode}, Body: {Body}",
+                    (int)response.StatusCode, body);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return StatusCode(StatusCodes.Status502BadGateway, new
                     {
-                        case_id = caseId,
-                        user_confirm_summary = true
-                    };
+                        success = false,
+                        errorCode = "N8N_CONFIRM_FAILED",
+                        message = "Failed to reach the automation service."
+                    });
+                }
 
-                    var response = await SendGetWithBodyAsync(http,
-                        $"{N8nBaseUrl}/webhook/confirm-summary",
-                        confirmPayload);
-
-                    string body = await response.Content.ReadAsStringAsync();
-                    _logger.LogInformation(
-                        "n8n confirm-summary → Status: {StatusCode}, Body: {Body}",
-                        (int)response.StatusCode, body);
-
-                    if (!response.IsSuccessStatusCode)
+                // ── Parse n8n response if it returns anything useful ──
+                string? n8nMessage = null;
+                if (!string.IsNullOrWhiteSpace(body))
+                {
+                    try
                     {
-                        await SetCaseStatus(caseId, "error_confirmation");
+                        using JsonDocument json = JsonDocument.Parse(body);
+                        JsonElement root = json.RootElement;
+
+                        JsonElement obj = root.ValueKind == JsonValueKind.Array
+                            ? root[0]
+                            : root;
+
+                        if (obj.TryGetProperty("output", out JsonElement outputEl))
+                            n8nMessage = outputEl.GetString();
+                        else if (obj.TryGetProperty("message", out JsonElement messageEl))
+                            n8nMessage = messageEl.GetString();
+                    }
+                    catch
+                    {
+                        // n8n returned non-JSON — not a problem, continue
                     }
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to confirm summary in n8n for case {CaseId}", caseId);
-                    await SetCaseStatus(caseId, "error_confirmation");
-                }
-            });
 
-            return Ok(new { success = true, message = "Summary confirmed. Processing started." });
+                // ── Update case status in DB ──────────────────────────
+                existingCase.Status = "confirmed";
+                await _caseRepository.UpdateAsync(existingCase);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Summary confirmed. Processing started.",
+                    data = new
+                    {
+                        caseId = existingCase.Id,
+                        status = existingCase.Status,
+                        n8nResponse = n8nMessage
+                    }
+                });
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.LogError("n8n confirm-summary timed out for case {CaseId}", id);
+                return StatusCode(StatusCodes.Status504GatewayTimeout, new
+                {
+                    success = false,
+                    errorCode = "N8N_TIMEOUT",
+                    message = "Automation service timed out."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to confirm summary in n8n for case {CaseId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    success = false,
+                    errorCode = "CONFIRM_ERROR",
+                    message = "An unexpected error occurred."
+                });
+            }
         }
     }
 }
