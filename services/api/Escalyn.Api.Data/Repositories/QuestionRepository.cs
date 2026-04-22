@@ -47,6 +47,19 @@ namespace Escalyn.Api.Data.Repositories
             return newQuestion;
         }
 
+        public async Task<QuestionBody?> GetByCaseIdAsync(Guid caseId)
+        {
+            return await _context.QuestionsBodies
+                .Include(q => q.Questions)
+                .FirstOrDefaultAsync(q => q.CaseId == caseId);
+        }
+
+        public async Task UpdateQuestionAsync(Question question)
+        {
+            _context.Questions.Update(question);
+            await _context.SaveChangesAsync();
+        }
+
         //DELETE EXISTS UPDATE - nyakoy drug put sega imam lekciya ot SoftUni :)
     }
 }

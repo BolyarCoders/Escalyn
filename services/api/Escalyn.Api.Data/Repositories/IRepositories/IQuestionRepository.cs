@@ -12,6 +12,8 @@ namespace Escalyn.Api.Data.Repositories.IRepositories
         Task<QuestionBody?> GetByIdAsync(Guid id);
         Task<QuestionBody> CreateBodyAsync(QuestionBody questionBody);
         Task<Question> CreateQuestionAsync(Question question);
+        Task<QuestionBody?> GetByCaseIdAsync(Guid caseId);
+        Task UpdateQuestionAsync(Question question);
 
     }
 }
