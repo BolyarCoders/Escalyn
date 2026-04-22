@@ -554,6 +554,10 @@ namespace Escalyn.Api.Controllers
         // GET api/cases/{id}/summary
         // Returns the latest summary for the case
         // ─────────────────────────────────────────────────────────────
+        // ─────────────────────────────────────────────────────────────
+        // GET api/cases/{id}/summary
+        // Fetches summary from n8n, stores it in DB and returns it
+        // ─────────────────────────────────────────────────────────────
         [HttpGet("{id}/summary")]
         public async Task<IActionResult> GetSummary(Guid id)
         {
@@ -561,28 +565,94 @@ namespace Escalyn.Api.Controllers
             if (existingCase == null)
                 return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
 
-            if (existingCase.Status != "awaiting_confirmation")
-                return BadRequest(new
+            // ── Contact n8n to get the summary ────────────────────────
+            try
+            {
+                using var http = _httpClientFactory.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(60);
+
+                var summaryResponse = await SendGetWithBodyAsync(http,
+                    $"{N8nBaseUrl}/webhook/get-summary",
+                    new { case_id = id });
+
+                string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
+
+                _logger.LogInformation(
+                    "n8n get-summary → Status: {StatusCode}, Body: {Body}",
+                    (int)summaryResponse.StatusCode, summaryBody);
+
+                if (!summaryResponse.IsSuccessStatusCode)
+                {
+                    return StatusCode(StatusCodes.Status502BadGateway, new
+                    {
+                        success = false,
+                        errorCode = "N8N_SUMMARY_FAILED",
+                        message = "Failed to reach the automation service."
+                    });
+                }
+
+                // ── Parse summary from n8n response ───────────────────
+                string summaryText = string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(summaryBody))
+                {
+                    using JsonDocument summaryJson = JsonDocument.Parse(summaryBody);
+                    JsonElement summaryRoot = summaryJson.RootElement;
+
+                    JsonElement summaryObj = summaryRoot.ValueKind == JsonValueKind.Array
+                        ? summaryRoot[0]
+                        : summaryRoot;
+
+                    if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
+                        summaryText = outputEl.GetString() ?? string.Empty;
+                }
+
+                if (string.IsNullOrEmpty(summaryText))
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        errorCode = "SUMMARY_NOT_FOUND",
+                        message = "No summary returned from automation service."
+                    });
+                }
+
+                // ── Store in DB and set status ─────────────────────────
+                existingCase.Summaries.Add(summaryText);
+                existingCase.Status = "awaiting_confirmation";
+                await _caseRepository.UpdateAsync(existingCase);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        caseId = existingCase.Id,
+                        status = existingCase.Status,
+                        summary = summaryText
+                    }
+                });
+            }
+            catch (TaskCanceledException)
+            {
+                _logger.LogError("n8n get-summary timed out for case {CaseId}", id);
+                return StatusCode(StatusCodes.Status504GatewayTimeout, new
                 {
                     success = false,
-                    errorCode = "SUMMARY_NOT_READY",
-                    message = $"Case is not awaiting confirmation. Current status: {existingCase.Status}"
+                    errorCode = "N8N_TIMEOUT",
+                    message = "Automation service timed out."
                 });
-
-            var summary = existingCase.Summaries.LastOrDefault();
-            if (string.IsNullOrEmpty(summary))
-                return NotFound(new { success = false, errorCode = "SUMMARY_NOT_FOUND", message = "No summary available yet." });
-
-            return Ok(new
+            }
+            catch (Exception ex)
             {
-                success = true,
-                data = new
+                _logger.LogError(ex, "Failed to get summary from n8n for case {CaseId}", id);
+                return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
-                    caseId = existingCase.Id,
-                    status = existingCase.Status,
-                    summary = summary
-                }
-            });
+                    success = false,
+                    errorCode = "SUMMARY_ERROR",
+                    message = "An unexpected error occurred."
+                });
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
