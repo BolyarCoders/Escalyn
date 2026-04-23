@@ -2,6 +2,7 @@
 using Escalyn.Api.Data.Models.DTOs;
 using Escalyn.Api.Data.Repositories.IRepositories;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 
@@ -45,14 +46,17 @@ namespace Escalyn.Api.Controllers
 
                 await _questionRepository.CreateBodyAsync(questionBody);
 
-                foreach (var questionDto in request.Questions)
-                {
-                    Question question = new Question
+                var questions = request.Questions
+                    .Select(questionDto => new Question
                     {
                         QuestionAsStr = questionDto.Question,
                         Answer = questionDto.Answer,
                         QuestionsBodyId = questionBody.Id
-                    };
+                    })
+                    .ToList();
+
+                foreach (var question in questions)
+                {
                     await _questionRepository.CreateQuestionAsync(question);
                 }
 
