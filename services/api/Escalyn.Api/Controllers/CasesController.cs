@@ -103,7 +103,6 @@ namespace Escalyn.Api.Controllers
                         return;
                     }
 
-                    string responseType = "success";
                     List<QuestionDTO> returnedQuestions = new();
 
                     if (!string.IsNullOrWhiteSpace(initialBody))
@@ -111,7 +110,7 @@ namespace Escalyn.Api.Controllers
                         using JsonDocument initialJson = JsonDocument.Parse(initialBody);
                         JsonElement root = initialJson.RootElement;
 
-                        responseType = root.TryGetProperty("type", out JsonElement typeEl)
+                        string responseType = root.TryGetProperty("type", out JsonElement typeEl)
                             ? typeEl.GetString() ?? "success"
                             : "success";
 
