@@ -50,6 +50,7 @@ namespace Escalyn.Api.Controllers
                 Subject = dto.Subject,
                 Language = dto.Language,
                 Status = "processing",
+                WinRate = 0,
                 Summaries = new List<string>(),
                 Questions = new List<QuestionBody>()
             };
@@ -183,6 +184,7 @@ namespace Escalyn.Api.Controllers
 
                     // ── Step 3a: Get summary ──────────────────────────
                     string summaryText = string.Empty;
+                    int winRate = 0;
 
                     var summaryResponse = await SendGetWithBodyAsync(http,
                         $"{N8nBaseUrl}/webhook/get-summary",
@@ -206,16 +208,20 @@ namespace Escalyn.Api.Controllers
 
                             if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
                                 summaryText = outputEl.GetString() ?? string.Empty;
+
+                            if (summaryObj.TryGetProperty("win_rate", out JsonElement winRateEl))
+                                winRate = winRateEl.TryGetInt32(out int wr) ? wr : 0;
                         }
                     }
 
-                    // ── Step 3b: Store summary, await user confirmation ──
+                    // ── Step 3b: Store summary + winrate, await user confirmation ──
                     if (!string.IsNullOrEmpty(summaryText))
                     {
                         Case? c = await repo.GetByIdAsync(caseId);
                         if (c != null)
                         {
                             c.Summaries.Add(summaryText);
+                            c.WinRate = winRate;
                             c.Status = "awaiting_confirmation";
                             await repo.UpdateAsync(c);
                         }
@@ -245,7 +251,8 @@ namespace Escalyn.Api.Controllers
                 Company = result.Company,
                 Subject = result.Subject,
                 Language = result.Language,
-                CreatedAt = result.CreatedAt.ToString("O")
+                CreatedAt = result.CreatedAt.ToString("O"),
+                WinRate = result.WinRate
             };
 
             return CreatedAtAction(nameof(GetCaseById), new { id = result.Id }, new
@@ -266,7 +273,6 @@ namespace Escalyn.Api.Controllers
             if (existingCase == null)
                 return NotFound(new { success = false, message = "Case not found." });
 
-            // Flatten questions for clean response
             var questions = existingCase.Questions
                 .SelectMany(qb => qb.Questions ?? new List<Question>())
                 .Select(q => new
@@ -276,7 +282,7 @@ namespace Escalyn.Api.Controllers
                     answer = q.Answer
                 })
                 .ToList();
-     
+
             return Ok(new
             {
                 success = true,
@@ -284,6 +290,7 @@ namespace Escalyn.Api.Controllers
                 {
                     caseId = existingCase.Id,
                     status = existingCase.Status,
+                    winRate = existingCase.WinRate,
                     summary = existingCase.Summaries.LastOrDefault(),
                     questions
                 }
@@ -347,6 +354,7 @@ namespace Escalyn.Api.Controllers
                     }
 
                     string summaryText = string.Empty;
+                    int winRate = 0;
                     string summaryBody = await summaryResponse.Content.ReadAsStringAsync();
 
                     if (!string.IsNullOrWhiteSpace(summaryBody))
@@ -360,13 +368,15 @@ namespace Escalyn.Api.Controllers
 
                         if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
                             summaryText = outputEl.GetString() ?? string.Empty;
+
+                        if (summaryObj.TryGetProperty("win_rate", out JsonElement winRateEl))
+                            winRate = winRateEl.TryGetInt32(out int wr) ? wr : 0;
                     }
 
-                    // ── Step 3: Persist summary + update answers ──────
+                    // ── Step 3: Persist summary + winrate + answers ───
                     Case? c = await repo.GetByIdAsync(id);
                     if (c != null)
                     {
-                        // Update answers on existing questions
                         foreach (var questionBody in c.Questions)
                         {
                             foreach (var question in questionBody.Questions ?? new List<Question>())
@@ -378,6 +388,7 @@ namespace Escalyn.Api.Controllers
                         }
 
                         c.Summaries.Add(!string.IsNullOrEmpty(summaryText) ? summaryText : "error_summary");
+                        c.WinRate = winRate;
                         c.Status = !string.IsNullOrEmpty(summaryText) ? "awaiting_confirmation" : "error_summary";
 
                         await repo.UpdateAsync(c);
@@ -420,7 +431,8 @@ namespace Escalyn.Api.Controllers
                     Company = caseFromDb.Company,
                     Subject = caseFromDb.Subject,
                     Language = caseFromDb.Language,
-                    CreatedAt = caseFromDb.CreatedAt.ToString("O")
+                    CreatedAt = caseFromDb.CreatedAt.ToString("O"),
+                    WinRate = caseFromDb.WinRate
                 });
             }
             catch
@@ -506,57 +518,16 @@ namespace Escalyn.Api.Controllers
                 Company = c.Company,
                 Subject = c.Subject,
                 Language = c.Language,
-                CreatedAt = c.CreatedAt.ToString("O")
+                CreatedAt = c.CreatedAt.ToString("O"),
+                WinRate = c.WinRate
             }).ToList();
 
             return Ok(new { success = true, data = caseDtos });
         }
 
         // ─────────────────────────────────────────────────────────────
-        // Helper: GET request with JSON body
-        // ─────────────────────────────────────────────────────────────
-        private static async Task<HttpResponseMessage> SendGetWithBodyAsync(HttpClient http, string url, object payload)
-        {
-            var request = new HttpRequestMessage(HttpMethod.Get, url)
-            {
-                Content = new StringContent(
-                    JsonSerializer.Serialize(payload),
-                    Encoding.UTF8,
-                    "application/json")
-            };
-            return await http.SendAsync(request);
-        }
-
-        // ─────────────────────────────────────────────────────────────
-        // Helper: safely update case status from background threads
-        // ─────────────────────────────────────────────────────────────
-        private async Task SetCaseStatus(Guid caseId, string status)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
-
-                Case? c = await repo.GetByIdAsync(caseId);
-                if (c != null)
-                {
-                    c.Status = status;
-                    await repo.UpdateAsync(c);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to update status for case {CaseId} to {Status}", caseId, status);
-            }
-        }
-
-        // ─────────────────────────────────────────────────────────────
         // GET api/cases/{id}/summary
-        // Returns the latest summary for the case
-        // ─────────────────────────────────────────────────────────────
-        // ─────────────────────────────────────────────────────────────
-        // GET api/cases/{id}/summary
-        // Fetches summary from n8n, stores it in DB and returns it
+        // Fetches summary from n8n, stores it + winrate in DB
         // ─────────────────────────────────────────────────────────────
         [HttpGet("{id}/summary")]
         public async Task<IActionResult> GetSummary(Guid id)
@@ -565,7 +536,6 @@ namespace Escalyn.Api.Controllers
             if (existingCase == null)
                 return NotFound(new { success = false, errorCode = "CASE_NOT_FOUND", message = "Case not found." });
 
-            // ── Contact n8n to get the summary ────────────────────────
             try
             {
                 using var http = _httpClientFactory.CreateClient();
@@ -591,8 +561,8 @@ namespace Escalyn.Api.Controllers
                     });
                 }
 
-                // ── Parse summary from n8n response ───────────────────
                 string summaryText = string.Empty;
+                int winRate = 0;
 
                 if (!string.IsNullOrWhiteSpace(summaryBody))
                 {
@@ -605,6 +575,9 @@ namespace Escalyn.Api.Controllers
 
                     if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
                         summaryText = outputEl.GetString() ?? string.Empty;
+
+                    if (summaryObj.TryGetProperty("win_rate", out JsonElement winRateEl))
+                        winRate = winRateEl.TryGetInt32(out int wr) ? wr : 0;
                 }
 
                 if (string.IsNullOrEmpty(summaryText))
@@ -617,8 +590,9 @@ namespace Escalyn.Api.Controllers
                     });
                 }
 
-                // ── Store in DB and set status ─────────────────────────
+                // ── Store summary + winrate in DB ─────────────────────
                 existingCase.Summaries.Add(summaryText);
+                existingCase.WinRate = winRate;
                 existingCase.Status = "awaiting_confirmation";
                 await _caseRepository.UpdateAsync(existingCase);
 
@@ -629,7 +603,8 @@ namespace Escalyn.Api.Controllers
                     {
                         caseId = existingCase.Id,
                         status = existingCase.Status,
-                        summary = summaryText
+                        summary = summaryText,
+                        winRate = winRate
                     }
                 });
             }
@@ -657,8 +632,7 @@ namespace Escalyn.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // POST api/cases/{id}/confirm-summary
-        // User confirms or rejects the summary, forwards to n8n and
-        // waits for the response
+        // User confirms or rejects the summary, forwards to n8n
         // ─────────────────────────────────────────────────────────────
         [HttpPost("{id}/confirm-summary")]
         public async Task<IActionResult> ConfirmSummary(Guid id, [FromBody] ConfirmSummaryDTO dto)
@@ -715,7 +689,7 @@ namespace Escalyn.Api.Controllers
                     });
                 }
 
-                // ── Parse n8n response if it returns anything useful ──
+                // ── Parse n8n response ────────────────────────────────
                 string? n8nMessage = null;
                 if (!string.IsNullOrWhiteSpace(body))
                 {
@@ -739,7 +713,7 @@ namespace Escalyn.Api.Controllers
                     }
                 }
 
-                // ── Update case status in DB ──────────────────────────
+                // ── Update status in DB ───────────────────────────────
                 existingCase.Status = "confirmed";
                 await _caseRepository.UpdateAsync(existingCase);
 
@@ -751,6 +725,7 @@ namespace Escalyn.Api.Controllers
                     {
                         caseId = existingCase.Id,
                         status = existingCase.Status,
+                        winRate = existingCase.WinRate,
                         n8nResponse = n8nMessage
                     }
                 });
@@ -774,6 +749,44 @@ namespace Escalyn.Api.Controllers
                     errorCode = "CONFIRM_ERROR",
                     message = "An unexpected error occurred."
                 });
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Helper: GET request with JSON body
+        // ─────────────────────────────────────────────────────────────
+        private static async Task<HttpResponseMessage> SendGetWithBodyAsync(HttpClient http, string url, object payload)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, url)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(payload),
+                    Encoding.UTF8,
+                    "application/json")
+            };
+            return await http.SendAsync(request);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // Helper: safely update case status from background threads
+        // ─────────────────────────────────────────────────────────────
+        private async Task SetCaseStatus(Guid caseId, string status)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var repo = scope.ServiceProvider.GetRequiredService<ICaseRepository>();
+
+                Case? c = await repo.GetByIdAsync(caseId);
+                if (c != null)
+                {
+                    c.Status = status;
+                    await repo.UpdateAsync(c);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update status for case {CaseId} to {Status}", caseId, status);
             }
         }
     }

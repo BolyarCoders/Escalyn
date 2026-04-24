@@ -14,5 +14,6 @@ namespace Escalyn.Api.Data.Models.DTOs
         public string Subject { get; set; }
         public string Language { get; set; }
         public string CreatedAt { get; set; } //Could be datetime - zavisi koceto kak go iska(TEST)
+        public int WinRate { get; set; }
     }
 }

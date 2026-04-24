@@ -1,6 +1,7 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,7 +19,9 @@ namespace Escalyn.Api.Data.Models
         public string Subject { get; set; }
         public string Language { get; set; } // ot User
         public DateTime CreatedAt { get; set; }
-        public string Status { get; set; }  
+        public string Status { get; set; }
+        [DefaultValue(0)]
+        public int WinRate { get; set; }
         public List<string> Summaries { get; set; }
         public List<QuestionBody> Questions { get; set; }
     }
