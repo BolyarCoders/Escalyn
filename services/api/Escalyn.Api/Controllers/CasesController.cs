@@ -524,10 +524,6 @@ namespace Escalyn.Api.Controllers
             return Ok(new { success = true, data = caseDtos });
         }
 
-        // ─────────────────────────────────────────────────────────────
-        // GET api/cases/{id}/summary
-        // Fetches summary from n8n, stores it + winrate in DB
-        // ─────────────────────────────────────────────────────────────
         [HttpGet("{id}/summary")]
         public async Task<IActionResult> GetSummary(Guid id)
         {
@@ -574,9 +570,6 @@ namespace Escalyn.Api.Controllers
 
                     if (summaryObj.TryGetProperty("output", out JsonElement outputEl))
                         summaryText = outputEl.GetString() ?? string.Empty;
-
-                    if (summaryObj.TryGetProperty("win_rate", out JsonElement winRateEl))
-                        winRate = winRateEl.TryGetInt32(out int wr) ? wr : 0;
                 }
 
                 if (string.IsNullOrEmpty(summaryText))
@@ -589,7 +582,20 @@ namespace Escalyn.Api.Controllers
                     });
                 }
 
-                // ── Store summary + winrate in DB ─────────────────────
+                // ── Extract win rate from end of summary ──────────────────
+                // Expected format: "... Assessment: 85%"
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    summaryText,
+                    @"Assessment:\s*(\d+)%",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                if (match.Success && int.TryParse(match.Groups[1].Value, out int parsedRate))
+                    winRate = parsedRate;
+
+                _logger.LogInformation(
+                    "Extracted win rate {WinRate} for case {CaseId}", winRate, id);
+
+                // ── Store summary + winrate in DB ─────────────────────────
                 existingCase.Summaries.Add(summaryText);
                 existingCase.WinRate = winRate;
                 existingCase.Status = "awaiting_confirmation";
